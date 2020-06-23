@@ -13,6 +13,10 @@ def politician_bills(polid):
 def topic_bills(topic_id):
     return session.query(Bill).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
 
+
+def dummy_query(dummy_id):
+    return "u dummy"
+
 #Given polid, return all votes by that politician on a certain topic
 def politician_topic_bills(polid, topic_id):
     pol_bills = politician_bills(polid)
