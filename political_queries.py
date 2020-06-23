@@ -86,8 +86,8 @@ def test_politician_topic_votes(polid, topic_id):
 
 
 #politician_bills(test_polid)
-pol_topic_bills = politician_topic_bills(test_polid, test_topic_id)
-test_politician_topic_bills(test_polid, test_topic_id)
+#pol_topic_bills = politician_topic_bills(test_polid, test_topic_id)
+#test_politician_topic_bills(test_polid, test_topic_id)
 #q = politician_topic_votes(test_polid, test_topic_id)
 #test_politician_topic_votes(test_polid, test_topic_id)
 
@@ -102,7 +102,7 @@ for pol in polids:
         topic_name = t.name
 
         q = politician_topic_votes(pol.id, t.id)
-        print(f'Info on: {pol_name}, {topic_name}')
+        #print(f'Info on: {pol_name}, {topic_name}')
 
         if not q.all():
             continue
