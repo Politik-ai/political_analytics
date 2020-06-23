@@ -2,30 +2,47 @@
 from init_db import *
 from framework import *
 from sqlalchemy import join
-
 session = Session()
 
 
-#Given a polid, find all votes that the politician voted on
-def politician_bill_query(polid):
-
-    #Create a join with the vote_politician and bill_state_id, and return all bill_state_ids
-    #convert bill_state_ids to bill_ids
+#BASIC QUERIES -----------------------------------------------------
+def politician_bills(polid):
     bill_query = session.query(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.polid == polid)
     return bill_query
 
+def topic_bills(topic_id):
+    return session.query(Bill).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
+
 #Given polid, return all votes by that politician on a certain topic
-def get_politician_topic_bills(polid, topic_id):
+def politician_topic_bills(polid, topic_id):
+    pol_bills = politician_bills(polid)
+    topic_bills = topic_bills(topic_id)
+    pol_topic_bills = pol_bills.union(topic_bills)
+    #topic_bills = session.query(Bill).join(pol_bills, Bill.id == pol_bills.c.id).join(Bill_Topic).join(topic_bills, Topic.id == topic_bills.c.id)
+    return pol_topic_bills
 
-    pol_bills = politician_bill_query(polid).subquery()
-    topic_bills = session.query(Bill).join(pol_bills, Bill.id == pol_bills.c.id).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
-    return topic_bills
+#return all bill of a given party
+def party_bills(party):
+    party_bills = session.query(Bill).join(Sponsorship).join(Politician).filter(Politician.party == party)
+    return party_bills
 
-def get_politician_topic_votes(polid, topic_id):
-    topic_bills = get_politician_topic_bills(polid, topic_id).subquery()
+#Returns bills between given dates
+def bills_bw_dates(before_date, after_date):
+    return session.query(Bill).join(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
+
+#BASIC GETS --------------------------------------------------------
+def get_all_politician():
+    return session.query(Politician.id).all()
+def get_all_topics():
+    return session.query(Topic.id).all()
+
+
+
+#COMBINATION QUERIES -----------------------------------------------
+def politician_topic_votes(polid, topic_id):
+    topic_bills = politician_topic_bills(polid, topic_id).subquery()
     topic_votes = session.query(Vote_Politician).filter(Vote_Politician.polid == polid).join(Vote).join(Bill_State).join(topic_bills, Bill_State.bill_id == topic_bills.c.id)
     return topic_votes
-
 
 def pass_stats(vote_query):
     num_votes = len(vote_query.all())
@@ -36,22 +53,25 @@ def pass_stats(vote_query):
     return vote_dict
 
 
-
 #-----------------------------------------------------------------------------------
 #TESTS
 #-----------------------------------------------------------------------------------
 test_polid = 'P000197'
 test_topic_id = 1
 
-def test_get_politician_topic_bills(polid, topic_id):
-    bills = get_politician_topic_bills(polid, topic_id)
+def test_politician_topic_bills(polid, topic_id):
+    bills = politician_topic_bills(polid, topic_id)
     for b in bills:
+        print('testing bill')
         topics = session.query(Topic).filter(Topic.id == topic_id).join(Bill_Topic).join(Bill).filter(Bill.id == b.id)
         if not topics.all():
             print('topic not found in bill, TEST FAILED')
+        else:
+            print('topics found')
+            print(topics.all())
 
-def test_get_politician_topic_votes(polid, topic_id):
-    pol_votes = get_politician_topic_votes(polid, topic_id)
+def test_politician_topic_votes(polid, topic_id):
+    pol_votes = politician_topic_votes(polid, topic_id)
     failed = False
     for v in pol_votes:
         if v.polid != polid:
@@ -65,14 +85,11 @@ def test_get_politician_topic_votes(polid, topic_id):
         print('Failed test')
 
 
-
-
-
-#politician_bill_query(test_polid)
-#pol_topic_bills = get_politician_topic_bills(test_polid, test_topic_id)
-#test_get_politician_topic_bills(test_polid, test_topic_id)
-#q = get_politician_topic_votes(test_polid, test_topic_id)
-#test_get_politician_topic_votes(test_polid, test_topic_id)
+#politician_bills(test_polid)
+pol_topic_bills = politician_topic_bills(test_polid, test_topic_id)
+test_politician_topic_bills(test_polid, test_topic_id)
+#q = politician_topic_votes(test_polid, test_topic_id)
+#test_politician_topic_votes(test_polid, test_topic_id)
 
 #pass_stats(q)
 
@@ -84,7 +101,7 @@ for pol in polids:
     for t in topics:
         topic_name = t.name
 
-        q = get_politician_topic_votes(pol.id, t.id)
+        q = politician_topic_votes(pol.id, t.id)
         print(f'Info on: {pol_name}, {topic_name}')
 
         if not q.all():
