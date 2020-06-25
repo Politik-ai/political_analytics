@@ -16,8 +16,9 @@ def topic_bills(topic_id):
 #Given polid, return all votes by that politician on a certain topic
 def politician_topic_bills(polid, topic_id):
     pol_bills = politician_bills(polid)
-    topic_bills = topic_bills(topic_id)
-    pol_topic_bills = pol_bills.union(topic_bills)
+    topic_billse = topic_bills(topic_id)
+    pol_topic_bills = pol_bills.union(topic_billse)
+    #print(pol_topic_bills)
     #topic_bills = session.query(Bill).join(pol_bills, Bill.id == pol_bills.c.id).join(Bill_Topic).join(topic_bills, Topic.id == topic_bills.c.id)
     return pol_topic_bills
 
@@ -63,6 +64,8 @@ def test_politician_topic_bills(polid, topic_id):
     bills = politician_topic_bills(polid, topic_id)
     for b in bills:
         print('testing bill')
+        print('testing bill')
+        print('testing bill')
         topics = session.query(Topic).filter(Topic.id == topic_id).join(Bill_Topic).join(Bill).filter(Bill.id == b.id)
         if not topics.all():
             print('topic not found in bill, TEST FAILED')
@@ -87,26 +90,26 @@ def test_politician_topic_votes(polid, topic_id):
 
 #politician_bills(test_polid)
 #pol_topic_bills = politician_topic_bills(test_polid, test_topic_id)
-#test_politician_topic_bills(test_polid, test_topic_id)
+test_politician_topic_bills(test_polid, test_topic_id)
 #q = politician_topic_votes(test_polid, test_topic_id)
 #test_politician_topic_votes(test_polid, test_topic_id)
 
 #pass_stats(q)
 
-polids = session.query(Politician)
-topics = session.query(Topic)
+# polids = session.query(Politician)
+# topics = session.query(Topic)
 
-for pol in polids:
-    pol_name = pol.first_name + " " + pol.last_name
-    for t in topics:
-        topic_name = t.name
+# for pol in polids:
+#     pol_name = pol.first_name + " " + pol.last_name
+#     for t in topics:
+#         topic_name = t.name
 
-        q = politician_topic_votes(pol.id, t.id)
-        #print(f'Info on: {pol_name}, {topic_name}')
+#         q = politician_topic_votes(pol.id, t.id)
+#         #print(f'Info on: {pol_name}, {topic_name}')
 
-        if not q.all():
-            continue
-        print(pass_stats(q))
+#         if not q.all():
+#             continue
+#         print(pass_stats(q))
 
 
 
