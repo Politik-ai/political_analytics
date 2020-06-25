@@ -16,13 +16,7 @@ def politician_bills(polid):
 def topic_bills(topic_id):
     return session.query(Bill).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
 
-#Given polid, return all votes by that politician on a certain topic
-def politician_topic_bills(polid, topic_id):
-    pol_bills = politician_bills(polid)
-    topic_bills = topic_bills(topic_id)
-    pol_topic_bills = pol_bills.union(topic_bills)
-    #topic_bills = session.query(Bill).join(pol_bills, Bill.id == pol_bills.c.id).join(Bill_Topic).join(topic_bills, Topic.id == topic_bills.c.id)
-    return pol_topic_bills
+
 
 #return all bill of a given party
 def party_sponsor_bills(party):
@@ -60,6 +54,24 @@ def get_sponsors_from_bills(bill_query):
 def party_politicians(party):
     return session.query(Politician).join(Politician_Term).filter(Politician_Term.party == party)
 
+#Returns a list of periods that a politician has been a leader
+def get_leadership_periods(polid):
+    leadership_roles = session.query(Leadership_Role).join(Politician).filter(Politician.id == polid)
+    if not leadership_roles:
+        raise Exception('Given politician was not a leader.')
+    periods = []
+    for role in leadership_roles:
+        periods.append(tuple(role.start_date,role.end_date))
+    return periods
+
+
+#Get all leaders of given party
+def party_leaders(party):
+    leaders = get_leadership()
+    party_members = party_politicians(party)
+    return party_members.union(leaders)
+
+
 #Return topics that given bills contain
 def topics_from_bills(bill_query):
     return session.query(Topic).join(Bill_Topic).join(bill_query.subquery, bill_query.id == Bill_Topic.bill_id)
@@ -79,13 +91,27 @@ def get_all_states():
 #Get all districts represented by Politician_Terms
 def get_all_districts():
     return session.query(Politician_Term.district).distinct()
+#Get all politicians with leadership roles
+def get_leadership():
+    return session.query(Politician).join(Leadership_Role)
 
 #COMBINATION QUERIES -----------------------------------------------
+#Given polid, return all votes by that politician on a certain topic
+def politician_topic_bills(polid, topic_id):
+    pol_bills = politician_bills(polid)
+    topic_bills = topic_bills(topic_id)
+    pol_topic_bills = pol_bills.union(topic_bills)
+    #topic_bills = session.query(Bill).join(pol_bills, Bill.id == pol_bills.c.id).join(Bill_Topic).join(topic_bills, Topic.id == topic_bills.c.id)
+    return pol_topic_bills
+
+
 #Given a politician and Topic, return the set of votes that the politician voted on with that Bill topic. 
 def politician_topic_votes(polid, topic_id):
     topic_bills = politician_topic_bills(polid, topic_id).subquery()
     topic_votes = session.query(Vote_Politician).filter(Vote_Politician.polid == polid).join(Vote).join(Bill_State).join(topic_bills, Bill_State.bill_id == topic_bills.c.id)
     return topic_votes
+
+
 
 
 #GET RESULTS--------------------------------------------------------------------------
@@ -104,13 +130,25 @@ def vote_result(vote):
     pol_votes = session.query(Vote_Politician).join(vote.subquery(), vote.id == Vote_Politician.vote_id)
     return pass_stats(pol_votes)
 
-def bill_query_result_summary(bills):
-    votes = votes_from_bills(bills)
+def votes_summary(votes):
     results = {}
     for v in votes:
         results.update(pass_stats(v))
     return results
 
+#Returns single summary dict of given bills
+def bill_query_result_summary(bills):
+    votes = votes_from_bills(bills)
+    return votes_summary(votes)
+
+#Given politician, create by-topic summary of votes
+def pol_topic_stats(polid):
+    stats = {}
+    for t in get_all_topics():
+        topic_votes = politician_topic_votes(polid, t.id)
+        stats[t.name] = votes_summary(topic_votes)
+    return stats
+            
 
 
 
