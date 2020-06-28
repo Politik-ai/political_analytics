@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from political_queries import *
 import unittest
 from datetime import date 
@@ -48,12 +49,14 @@ class TestQueries(unittest.TestCase):
 
     def test_politician_from_district(self):
         district = 13
-        politicians = politicians_from_state(district)
-        print(len(politicians.all()))
+        politicians = politicians_from_district(district)
         for p in politicians:
+            found = False
             pol_district = session.query(Politician_Term).filter(Politician_Term.polid == p.id)
             for ps in pol_district:
-                self.assertEqual(ps.district, district)
+                if ps.district == district:
+                    found = True
+        self.assertTrue(found)
 
 
     def test_votes_from_bills(self):
@@ -61,7 +64,13 @@ class TestQueries(unittest.TestCase):
         polid = 'P000197'
         bills = pol_sponsored_bills(polid)
         bill_ids = [b.id for b in bills.all()]
-        votes = vote_from_bills(bills)
+        votes = votes_from_bills(bills)
+
+        self.assertTrue(not not votes)
+        if votes.all() is None:
+            print('ending early')
+            return
+
         for v in votes:
             self.assertTrue(v.bill_id in bill_ids)
             #NOTE: FOR INCREASED ROBUSTNESS, also check that each bill is accounted for in votes
@@ -87,16 +96,13 @@ class TestQueries(unittest.TestCase):
 
         topic1_bills = topic_bills(1)
         topic2_bills = topic_bills(2)
-        topic_bills = topic1_bills.union(topic2_bills)
-        topics = topics_from_bills(topic_bills)
+        t_bills = topic1_bills.union(topic2_bills)
+        topics = topics_from_bills(t_bills)
 
         found_topics = set()
         for t in topics:
             found_topics.add(t.id)
-        self.assertTrue(topics_set.issubset(found_topics))
-    
-
-        
+        self.assertTrue(topics_set.issubset(found_topics))        
 
 
 

@@ -37,7 +37,6 @@ def bill_states_bw_dates(before_date, after_date):
 
 #Returns politicians that represent a given state
 def politicians_from_state(state):
-    #print(session.query(Politician).join(Politician_Term).filter(Politician_Term.state == state).all())
     return session.query(Politician).join(Politician_Term).filter(Politician_Term.state == state)
 
 #Returns politicians that represent a given district
@@ -47,7 +46,7 @@ def politicians_from_district(district):
 #Given query of Bills, what are all of the votes associated?
 def votes_from_bills(bill_query):
     bill_subquery = bill_query.subquery()
-    votes = session.query(Vote).join(bill_subquery, Bill.id == bill_subquery.id)
+    votes = session.query(Vote).join(Bill_State).join(bill_subquery, Bill_State.bill_id == bill_subquery.c.id)
     return votes
 
 #TODO: TEST
@@ -87,7 +86,11 @@ def party_leaders(party):
 
 #Return topics that given bills contain.
 def topics_from_bills(bill_query):
-    return session.query(Topic).join(Bill_Topic).join(bill_query.subquery, bill_query.id == Bill_Topic.bill_id)
+    b_sub = bill_query.subquery()
+    b_id, bill_code, status, originating_body = tuple(b_sub.c)
+    results =  session.query(Topic).join(Bill_Topic).join(b_sub, b_id == Bill_Topic.bill_id)
+    print(results.all())
+    return results
 
 
 #BASIC GETS --------------------------------------------------------
@@ -123,9 +126,12 @@ def politician_topic_bills(polid, topic_id):
 #Given a politician and Topic, return the set of votes that the politician voted on with that Bill topic. 
 def politician_topic_votes(polid, topic_id):
     pol_topic_bills = politician_topic_bills(polid, topic_id).subquery()
+    
+    b_id, bill_code, status, originating_body = tuple(pol_topic_bills.c)
+
     topic_votes = session.query(Vote_Politician).filter(Vote_Politician.polid == polid) \
         .join(Vote).join(Bill_State).join(Bill) \
-        .join(pol_topic_bills, Bill.id == pol_topic_bills.c.bills_id)
+        .join(pol_topic_bills, Bill.id == b_id)
     return topic_votes
 
 
