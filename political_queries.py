@@ -113,7 +113,7 @@ def get_politician_terms_on_day(date):
     return session.query(Politician_Term).filter(Politician_Term.start_date <= date, Politician_Term.end_date >= date)
 
 #COMBINATION QUERIES -----------------------------------------------
-#Given polid, return all votes by that politician on a certain topic
+#Given polid, return all bills voted on by a politician on a certain topic
 def politician_topic_bills(polid, topic_id):
     pol_bills = politician_bills(polid)
     top_bills = topic_bills(topic_id)
