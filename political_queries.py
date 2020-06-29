@@ -89,7 +89,6 @@ def topics_from_bills(bill_query):
     b_sub = bill_query.subquery()
     b_id, bill_code, status, originating_body = tuple(b_sub.c)
     results =  session.query(Topic).join(Bill_Topic).join(b_sub, b_id == Bill_Topic.bill_id)
-    print(results.all())
     return results
 
 
