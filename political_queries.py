@@ -1,6 +1,7 @@
 
-from init_db import *
+from init_db import Session, engine
 from framework import *
+#from framework import *
 from sqlalchemy import join
 session = Session()
 
