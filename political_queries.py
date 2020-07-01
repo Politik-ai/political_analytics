@@ -12,7 +12,11 @@ def politician_bills(polid):
     return session.query(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.polid == polid)
 
 #Return all bills that contain given Topic ID
-def topic_bills(topic_id):
+def topic_bills(topic_id, bill_query = None):
+    if bill_query:
+        bill_sub = bill_query.subquery()
+        b_id, bill_code, status, originating_body = tuple(bill_sub.c)
+        return session.query(Bill).join(bill_sub, Bill.id == b_id).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
     return session.query(Bill).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
 
 #return all bill of a given party
@@ -46,8 +50,21 @@ def politicians_from_district(district):
 #Given query of Bills, what are all of the votes associated?
 def votes_from_bills(bill_query):
     bill_subquery = bill_query.subquery()
-    votes = session.query(Vote).join(Bill_State).join(bill_subquery, Bill_State.bill_id == bill_subquery.c.id)
+    b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
+
+    votes = session.query(Vote).join(Bill_State).join(bill_subquery, Bill_State.bill_id == b_id)
     return votes
+
+def pol_votes_from_votes(vote_query, polid):
+    vote_sub = vote_query.subquery()
+    v_id, bs_id, vote_date = vote_sub.c
+    return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id).filter(Vote_Politician.polid == polid)
+
+#Filter politicians by ones that were active on given date
+def filter_pols_by_congress(pol_query, filter_date):
+    pol_sub = pol_query.subquery()
+    return session.query(Politician).join(pol_sub, pol_sub.c.id == Politician.id).join(Politician_Term).filter(Politician_Term.start_date <= filter_date, Politician_Term.end_date >= filter_date)
+    
 
 #TODO: TEST
 #Get all sponsors for a given list of bills (bill_query)
@@ -97,7 +114,7 @@ def topics_from_bills(bill_query):
 def get_all_politician():
     return session.query(Politician.id).all()
 def get_all_topics():
-    return session.query(Topic.id).all()
+    return session.query(Topic).all()
 #Get a list of all parties represented in the Politician_Term table
 def get_all_parties():
     return session.query(Politician_Term.party).distinct()
