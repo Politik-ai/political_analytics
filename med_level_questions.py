@@ -156,16 +156,14 @@ def get_all_topic_fringes(party, rel_date = None):
         os.mknod('repub_topic_fringes.yaml')
     i = 0
     for t in topics:
+        i += 1
+        print(f"{i}/{num_topics}")
 
         with open('repub_topic_fringes.yaml', 'r') as yamlfile:
             cur_yaml = yaml.safe_load(yamlfile)
-            if not cur_yaml:
-                cur_yaml = {}
         if t.name in cur_yaml:
             print(f'{t.name} already done')
             continue
-        i += 1
-        print(f"{i}/{num_topics}")
         fringe =  party_topic_fringe(party, t.id, rel_date)
         if not fringe:
             continue
