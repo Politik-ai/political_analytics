@@ -8,9 +8,10 @@ class TestQueries(unittest.TestCase):
 
     def test_party_primary_sponsor_bills(self):
         test_party = "Democrat"
-        party_bills = party_primary_sponsor_bills(test_party)
+        party_bills = party_primary_sponsor_bills(session, test_party)
         num_bills = len(party_bills.all())
         i = 0
+        print(num_bills)
         for pb in party_bills:
             i +=1
             found_pb = False
@@ -23,4 +24,5 @@ class TestQueries(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    session = Session()
     unittest.main()
