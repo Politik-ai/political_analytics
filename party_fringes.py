@@ -27,7 +27,7 @@ def session_scope():
 def thread_worker(f, args):
     # We're using the session context here.
     with session_scope() as session:
-        f(session, *args)
+        return f(session, *args)
 
 
 #Given party, who will not vote with the party the most?
@@ -103,8 +103,7 @@ def party_topic_fringe(session, party, topic, rel_date = None):
     print(f'Getting data for topic: {topic}')
     for pol in party_pols:
         i += 1
-        #if i > 15:
-        #    break
+        
         print(f"{i}/{num_pols}")
         pol_bills = politician_bills(session, pol.id)
         #print(f'Getting data for: {pol.first_name} {pol.last_name}: {len(pol_bills.all())}')
@@ -129,7 +128,8 @@ def party_topic_fringe(session, party, topic, rel_date = None):
     #if len(party_ratios) > 0:
      #   continue
         #print(f"{party_ratios[0][0]}: {party_ratios[0][1]} (Sample size: {party_ratios[0][2]})")
-        
+    #print('returning:')
+    #print({topic: party_ratios})
     return {topic: party_ratios} 
 
 
@@ -139,18 +139,18 @@ def get_all_topic_fringes_concurrently(party, rel_date, thread_number=11):
     session = Session()
     topics = get_all_topics(session)
     session.close()
-    pool = ThreadPool(thread_number)
-    results = pool.starmap(thread_worker, [(party_topic_fringe, [party, topic.id, rel_date]) for topic in topics])
+    pool = ThreadPool(processes = thread_number)
+    results = pool.starmap_async(thread_worker, [(party_topic_fringe, [party, topic.id, rel_date]) for topic in topics]).get()
 
     pool.close()
     pool.join()
     total_results = {}
-    for r in total_results:
-        total_results.update(r)
-    
+    for r in results:
+        if r != None:
+            total_results.update(r)
     print(total_results)
 
-    return results
+    return total_results
 
 
 #party_fringe("Republican")
@@ -158,9 +158,15 @@ def get_all_topic_fringes_concurrently(party, rel_date, thread_number=11):
 #session = Session()
 #party_topic_fringe(session, "Republican", 1, date(2014,2,1))
 
-result = get_all_topic_fringes_concurrently("Republican", date(2014,2,1))
+#result = get_all_topic_fringes_concurrently("Republican", date(2014,2,1))
 
-with open('repub_topic_fringes.yaml', 'w') as outfile:
-    yaml.dump(result, outfile, default_flow_style=True)
+#with open('repub_topic_fringes.yaml', 'w') as outfile:
+#    yaml.dump(result, outfile, default_flow_style=False)
+
+
+#result = get_all_topic_fringes_concurrently("Democrat", date(2014,2,1))
+
+#with open('democrat_topic_fringes.yaml', 'w') as outfile:
+#    yaml.dump(result, outfile, default_flow_style=False)
 
 #Question: Given topic and party, which politician is most of fringe of voting
