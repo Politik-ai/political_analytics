@@ -10,8 +10,6 @@ from bill_status import *
 #Get all bills that were voted upon by a given politician
 def politician_bills(session, polid):
     result = session.query(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.polid == polid)
-    #result2 = session.query(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.polid == polid)
-    #print(result.all())
     return result   
 
 def get_all_bills_voted_on(session):
@@ -27,9 +25,6 @@ def topic_bills(session, topic_id, bill_query = None):
 
 #return all bill of a given party
 def party_primary_sponsor_bills(session, party):
-    #get all politician_terms of correct party
-    #for each politician term, get all bills sponsored by that politician
-    #for each of those bills, filter to ensure that during that period that politician was in the given party
     party_bills = session.query(Bill).join(Bill_State).join(Sponsorship).join(Politician).join(Politician_Term)\
         .filter(Politician_Term.party == party, \
         Politician_Term.start_date <= Bill_State.intro_date, \

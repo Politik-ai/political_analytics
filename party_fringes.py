@@ -1,4 +1,4 @@
-#Use this to answer interesting questions that don't require ML
+#Question: Given topic and party, which politician is most of fringe of voting
 from init_db import *
 from framework import *
 from political_queries import *
@@ -12,8 +12,6 @@ from multiprocessing import Pool as ThreadPool
 @contextmanager
 def session_scope():
     """Provide a transactional scope around a series of operations."""
-    #engine = create_engine('sqlite:///../data_collection/political_db.db')
-    #Session = sessionmaker(bind=engine)
     session = Session()
     try:
         yield session
@@ -68,15 +66,11 @@ def party_fringe(party, rel_date = None):
             lowest_ratio_id = pol.id
             lowest_ratio_name = pol.first_name + " " + pol.last_name
         
-    #print('Total party ratios:')
 
     def get_ratio(item):
         return item[1]
 
     party_ratios.sort(key=get_ratio)
-    for r in party_ratios:
-        #print(f"{r[0]}: {r[1]} (Sample size: {r[2]})")
-        continue
 
     return party_ratios
 
@@ -106,13 +100,11 @@ def party_topic_fringe(session, party, topic, rel_date = None):
         
         print(f"{i}/{num_pols}")
         pol_bills = politician_bills(session, pol.id)
-        #print(f'Getting data for: {pol.first_name} {pol.last_name}: {len(pol_bills.all())}')
         relevant_bills = pol_bills.intersect(party_topic_bills)
         party_votes = pol_votes_from_votes(session, votes_from_bills(session, relevant_bills), pol.id)
         pol_results = pass_stats(party_votes)
         total_votes = pol_results['aye'] + pol_results['no'] + pol_results['aqui']
         if total_votes == 0:
-            #print('No votes found')
             continue
         party_vote_results[pol.id] = pol_results
         
@@ -122,14 +114,8 @@ def party_topic_fringe(session, party, topic, rel_date = None):
 
     def get_ratio(item):
         return item[1]
-    #print(f'Total vote dict size: {len(party_ratios)}')
-    #print(party_ratios)
     party_ratios.sort(key=get_ratio)
-    #if len(party_ratios) > 0:
-     #   continue
-        #print(f"{party_ratios[0][0]}: {party_ratios[0][1]} (Sample size: {party_ratios[0][2]})")
-    #print('returning:')
-    #print({topic: party_ratios})
+
     return {topic: party_ratios} 
 
 
@@ -169,4 +155,3 @@ def get_all_topic_fringes_concurrently(party, rel_date, thread_number=11):
 #with open('democrat_topic_fringes.yaml', 'w') as outfile:
 #    yaml.dump(result, outfile, default_flow_style=False)
 
-#Question: Given topic and party, which politician is most of fringe of voting
