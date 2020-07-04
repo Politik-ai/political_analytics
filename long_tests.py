@@ -11,7 +11,6 @@ class TestQueries(unittest.TestCase):
         party_bills = party_primary_sponsor_bills(session, test_party)
         num_bills = len(party_bills.all())
         i = 0
-        print(num_bills)
         for pb in party_bills:
             i +=1
             found_pb = False
