@@ -36,6 +36,10 @@ def party_primary_sponsor_bills(session, party):
 def pol_sponsored_bills(session, polid):
     return session.query(Bill).join(Sponsorship).filter(Sponsorship.polid == polid)
 
+#Return all bills primarily sponsored by a given politician
+def pol_primary_sponsored_bills(session, polid):
+    return session.query(Bill).join(Sponsorship).filter(Sponsorship.polid == polid, Sponsorship.sponsor_type == 'primary')
+
 #Returns bill states active between given dates
 def bill_states_bw_dates(session, before_date, after_date, bill_state_query = None):
     if not bill_state_query:
@@ -75,6 +79,11 @@ def pol_votes_from_votes(session, vote_query, polid):
     v_id, bs_id, vote_date = vote_sub.c
     return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id).filter(Vote_Politician.polid == polid)
 
+def vote_pols_from_votes(session, vote_query):
+    vote_sub = vote_query.subquery()
+    v_id, bs_id, vote_date = vote_sub.c
+    return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id)
+
 #Filter politicians by ones that were active on given date
 def filter_pols_by_date(session, pol_query, filter_date):
     pol_sub = pol_query.subquery()
@@ -85,6 +94,22 @@ def filter_pols_by_state(session, pol_query, state):
     pol_sub = pol_query.subquery()
     return session.query(Politician).join(pol_sub, pol_sub.c.id == Politician.id).join(Politician_Term).filter(Politician_Term.state == state)
     
+#Return subset of given bills that contain given topic
+def filter_bills_by_topic(session, bill_query, topic_id):
+    bill_subquery = bill_query.subquery()
+    b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
+    return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_Topic).filter(Bill_Topic.id == topic_id)
+
+#Given vote_query, return pol_votes that are from a given party
+def pol_votes_from_party(session, vote_query, party):
+    vote_sub = vote_query.subquery()
+    v_id, bs_id, vote_date = vote_sub.c
+    return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id)\
+        .join(Bill_State).join(Politician).join(Politician_Term)\
+        .filter(Politician_Term.party == party, \
+        Politician_Term.start_date <= Bill_State.intro_date, \
+        Politician_Term.end_date >= Bill_State.intro_date)
+
 
 #TODO: TEST
 #Get all sponsors for a given list of bills (bill_query)
@@ -193,6 +218,7 @@ def vote_result(session, vote):
 def votes_summary(votes):
     results = {}
     for v in votes:
+        new_stats = pass_stats(v)
         results.update(pass_stats(v))
     return results
 
@@ -209,9 +235,12 @@ def pol_topic_stats(session, polid):
         stats[t.name] = votes_summary(topic_votes)
     return stats
 
-def pol_bill_votes(session, polid, bill_query):
+def pass_stats_average(pass_stats):
+    total_votes = sum(pass_stats.values()) - pass_stats['no_vote']
+    ratio = round(pol_results['aye']/total_votes,3)
+    return ratio
 
-    return
+
             
 
 #COMPARING RESULTS-----------------------------------------------------------------------
