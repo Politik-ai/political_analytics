@@ -98,7 +98,7 @@ def filter_pols_by_state(session, pol_query, state):
 def filter_bills_by_topic(session, bill_query, topic_id):
     bill_subquery = bill_query.subquery()
     b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
-    return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_Topic).filter(Bill_Topic.id == topic_id)
+    return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_Topic).filter(Bill_Topic.topic_id == topic_id)
 
 #Given vote_query, return pol_votes that are from a given party
 def pol_votes_from_party(session, vote_query, party):
@@ -235,9 +235,11 @@ def pol_topic_stats(session, polid):
         stats[t.name] = votes_summary(topic_votes)
     return stats
 
-def pass_stats_average(pass_stats):
-    total_votes = sum(pass_stats.values()) - pass_stats['no_vote']
-    ratio = round(pol_results['aye']/total_votes,3)
+def pass_stats_average(pol_results):
+    total_votes = sum(pol_results.values()) - pol_results['no_vote']
+    if total_votes == 0:
+        return 0
+    ratio = round(pol_results['aye']/total_votes ,3)
     return ratio
 
 
