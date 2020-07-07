@@ -5,27 +5,7 @@ from political_queries import *
 from datetime import date
 import yaml
 import os
-
-from contextlib import contextmanager
-from multiprocessing import Pool as ThreadPool
-
-@contextmanager
-def session_scope():
-    """Provide a transactional scope around a series of operations."""
-    session = Session()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-def thread_worker(f, args):
-    # We're using the session context here.
-    with session_scope() as session:
-        return f(session, *args)
+from multiprocessing_base import *
 
 
 #Given party, who will not vote with the party the most?
@@ -37,7 +17,7 @@ def party_fringe(party, rel_date = None):
 
     party_pols = party_politicians(party)
     if not not rel_date:
-        party_pols = filter_pols_by_congress(party_pols, rel_date)
+        party_pols = filter_pols_by_date(party_pols, rel_date)
 
     party_vote_results = {}
     party_ratios = []
@@ -84,7 +64,7 @@ def party_topic_fringe(session, party, topic, rel_date = None):
 
     party_pols = party_politicians(session, party)
     if not not rel_date:
-        party_pols = filter_pols_by_congress(session, party_pols, rel_date)
+        party_pols = filter_pols_by_date(session, party_pols, rel_date)
 
     party_vote_results = {}
     lowest_ratio = 1
