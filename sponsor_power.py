@@ -93,7 +93,7 @@ def get_sponsorship_agenda_power_by_party_topic(session, polid, pol_name, rel_da
     if len(bills.all()) == 0:
         return {}
 
-    print(f"Polid: {polid}")
+    #print(f"Polid: {polid}")
     for topic in topics:
         topic_bills = filter_bills_by_topic(session, bills, topic.id)
         num_bills = len(topic_bills.all())
@@ -102,13 +102,13 @@ def get_sponsorship_agenda_power_by_party_topic(session, polid, pol_name, rel_da
         num_votes = len(votes_from_bills(session, topic_bills).all())
 
         #When a bill is never even voted on, how should it be considered? 
-
         #Currently just taking pass percentage of all votes discarding no-votes
         power_dict[topic.name] = {'Votes':num_votes, 'Bills':num_bills}
+        
         #print(f"Topic: {topic.name}, Bill: {num_bills}, Votes: {num_votes}")
-    print(f"Polid: {polid} DONE")
-    session.rollback()
-    print('rolled back')
+    #print(f"Polid: {polid} DONE")
+
+    #print('rolled back')
     return {polid: {'Name':pol_name, 'Topics':power_dict}}
 
 def get_sponsporship_agenda_power_in_party(party, rel_dates, primary, thread_number = 1):

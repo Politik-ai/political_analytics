@@ -9,15 +9,15 @@ from multiprocessing_base import *
 
 
 #Given party, who will not vote with the party the most?
-def party_fringe(party, rel_date = None):
+def party_fringe(session, party, rel_date = None):
     #Get average voting records of all politicians for party sponsored bills
     #which politician votes the most negative with that party. 
-    party_bills = party_primary_sponsor_bills(party)
+    party_bills = party_primary_sponsor_bills(session, party)
 
 
-    party_pols = party_politicians(party)
+    party_pols = party_politicians(session, party)
     if not not rel_date:
-        party_pols = filter_pols_by_date(party_pols, rel_date)
+        party_pols = filter_pols_by_date(session, party_pols, rel_date)
 
     party_vote_results = {}
     party_ratios = []
@@ -29,9 +29,9 @@ def party_fringe(party, rel_date = None):
     for pol in party_pols:
         i += 1
         print(f"{i}/{num_pols}")
-        pol_bills = politician_bills(pol.id)
+        pol_bills = politician_bills(session, pol.id)
         relevant_bills = pol_bills.intersect(party_bills)
-        party_votes = pol_votes_from_votes(votes_from_bills(relevant_bills), pol.id)
+        party_votes = pol_votes_from_votes(session, votes_from_bills(session, relevant_bills), pol.id)
         pol_results = pass_stats(party_votes)
         total_votes = pol_results['aye'] + pol_results['no'] + pol_results['aqui']
         if total_votes == 0:
@@ -118,20 +118,20 @@ def get_all_topic_fringes_concurrently(party, rel_date, thread_number=11):
 
     return total_results
 
+session = Session()
 
-#party_fringe("Republican")
-#party_fringe("Democrat", date(2014,2,1))
-#session = Session()
+#party_fringe(session, "Republican")
+#party_fringe(session, "Democrat", date(2014,2,1))
 #party_topic_fringe(session, "Republican", 1, date(2014,2,1))
 
-#result = get_all_topic_fringes_concurrently("Republican", date(2014,2,1))
+result = get_all_topic_fringes_concurrently("Republican", date(2014,2,1))
 
-#with open('repub_topic_fringes.yaml', 'w') as outfile:
-#    yaml.dump(result, outfile, default_flow_style=False)
+with open('result/repub_topic_fringes.yaml', 'w') as outfile:
+   yaml.dump(result, outfile, default_flow_style=False)
 
 
-#result = get_all_topic_fringes_concurrently("Democrat", date(2014,2,1))
+result = get_all_topic_fringes_concurrently("Democrat", date(2014,2,1))
 
-#with open('democrat_topic_fringes.yaml', 'w') as outfile:
-#    yaml.dump(result, outfile, default_flow_style=False)
+with open('result/democrat_topic_fringes.yaml', 'w') as outfile:
+   yaml.dump(result, outfile, default_flow_style=False)
 

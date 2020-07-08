@@ -137,8 +137,6 @@ def get_leadership_periods(session, polid):
         periods.append(tuple(role.start_date,role.end_date))
     return periods
 
-def topic_bills(session, topic):
-    return session.query(Bill).join(Bill_Topic).join(Topic).filter(Topic.id == topic)
 
 
 #TODO: TEST
