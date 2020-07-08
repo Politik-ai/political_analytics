@@ -18,10 +18,6 @@ class TestQueries(unittest.TestCase):
             self.assertTrue(sponsor.party == test_party)
 
 
-
-
-
-
 if __name__ == '__main__':
     session = Session()
     unittest.main()

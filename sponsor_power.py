@@ -22,6 +22,7 @@ Also separate voting b/w party. Some sponsors may generate strong party support,
 
 """
 
+#Get vote power for a specific sponsor 
 def get_sponsorship_vote_power_by_party_topic(session, polid, pol_name, party, rel_dates, primary):
 
     if primary:
@@ -31,11 +32,10 @@ def get_sponsorship_vote_power_by_party_topic(session, polid, pol_name, party, r
 
     rel_dates = None
     if rel_dates != None:
-        bills = bill_bw_dates(session, *rel_dates, bills)    
+        bills = bill_bw_dates(session, *rel_dates, bills)
 
     topics = get_all_topics(session)
     power_dict = {}
-
     if len(bills.all()) == 0:
         return {}
 
@@ -61,6 +61,7 @@ def get_sponsorship_vote_power_by_party_topic(session, polid, pol_name, party, r
 
     return {polid: {'Name':pol_name, 'Topics':power_dict}}
 
+#Get sponsorship vote power (affects on votes) for all pols in a party
 def get_sponsporship_vote_power_in_party(party, rel_dates, primary, thread_number = 11):
     session = Session()
     pols = party_politicians(session, party)
@@ -77,6 +78,7 @@ def get_sponsporship_vote_power_in_party(party, rel_dates, primary, thread_numbe
     return total_results
 
 
+#Get sponsorship agenda power for a specific person.
 def get_sponsorship_agenda_power_by_party_topic(session, polid, pol_name, rel_dates, primary):
     if primary:
         bills = pol_primary_sponsored_bills(session, polid)
@@ -105,20 +107,18 @@ def get_sponsorship_agenda_power_by_party_topic(session, polid, pol_name, rel_da
         #Currently just taking pass percentage of all votes discarding no-votes
         power_dict[topic.name] = {'Votes':num_votes, 'Bills':num_bills}
         
-        #print(f"Topic: {topic.name}, Bill: {num_bills}, Votes: {num_votes}")
-    #print(f"Polid: {polid} DONE")
-
-    #print('rolled back')
     return {polid: {'Name':pol_name, 'Topics':power_dict}}
 
-def get_sponsporship_agenda_power_in_party(party, rel_dates, primary, thread_number = 1):
+#Get all sponsorship powers for all topics in a party
+def get_sponsporship_agenda_power_in_party(party, rel_dates, primary, thread_number = 11):
     session = Session()
     pols = party_politicians(session, party)
     pols = filter_pols_by_date(session, pols, rel_dates[0])
-    #print(f"Number of politicians: {len(pols.all())}")
+    print(f"Number of politicians: {len(pols.all())}")
     session.close()
     pool = ThreadPool(processes = thread_number)
-    results = pool.starmap_async(thread_worker, [(get_sponsorship_agenda_power_by_party_topic, [pol.id, pol.first_name + " " + pol.last_name, rel_dates, primary]) for pol in pols]).get()
+    results = pool.starmap_async(thread_worker, [(get_sponsorship_agenda_power_by_party_topic, [pol.id, "test", rel_dates, primary]) for pol in pols])
+    results = results.get()
 
     pool.close()
     pool.join()
@@ -129,7 +129,7 @@ def get_sponsporship_agenda_power_in_party(party, rel_dates, primary, thread_num
     return total_results
 
 
-
+#Get sponsorship power for a given politician
 def general_sponsorship_agenda_power(session, polid, pol_name, rel_dates, primary):
 
     if primary:
@@ -144,10 +144,9 @@ def general_sponsorship_agenda_power(session, polid, pol_name, rel_dates, primar
     votes = votes_from_bills(session, bills)
 
     #Currently just taking pass percentage of all votes discarding no-votes
-
     return {polid:  {'Name':pol_name, 'Ratio':len(votes.all())/len(bills.all()), 'Votes': len(votes.all()), 'Bills': len(bills.all())}}
 
-
+#Get general sponsorship power for all politicians in a party
 def get_general_sponsorship_agenda_power(party, rel_dates, primary, thread_number = 12):
     session = Session()
     pols = filter_pols_by_date(session, party_politicians(session, party), rel_dates[0])
@@ -165,6 +164,8 @@ def get_general_sponsorship_agenda_power(party, rel_dates, primary, thread_numbe
     
     return total_results
 
+
+#Testing results
 result = get_general_sponsorship_agenda_power('Democrat', [date(2013,2,1), date(2014,2,1)], True)
 with open('results/general_sponsor_power.yaml', 'w') as outfile:
     yaml.dump(result, outfile, default_flow_style=False)

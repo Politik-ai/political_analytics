@@ -3,7 +3,6 @@ from init_db import *
 from framework import *
 from sqlalchemy import join
 from bill_status import *
-#session = Session()
 
 
 #BASIC QUERIES -----------------------------------------------------
@@ -70,15 +69,16 @@ def politicians_from_district(session, district):
 def votes_from_bills(session, bill_query):
     bill_subquery = bill_query.subquery()
     b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
-
     votes = session.query(Vote).join(Bill_State).join(bill_subquery, Bill_State.bill_id == b_id)
     return votes
 
+#Get pol_votes associated with given vote_query for a given polid
 def pol_votes_from_votes(session, vote_query, polid):
     vote_sub = vote_query.subquery()
     v_id, bs_id, vote_date = vote_sub.c
     return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id).filter(Vote_Politician.polid == polid)
 
+#Get all pol_votes associated with given vote_query
 def vote_pols_from_votes(session, vote_query):
     vote_sub = vote_query.subquery()
     v_id, bs_id, vote_date = vote_sub.c
