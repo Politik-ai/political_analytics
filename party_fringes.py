@@ -101,7 +101,7 @@ def get_all_topic_fringes_concurrently(party, rel_date, thread_number=11):
     topics = get_all_topics(session)
     session.close()
     pool = ThreadPool(processes = thread_number)
-    results = pool.starmap_async(thread_worker, [(party_topic_fringe, [party, topic.id, rel_date]) for topic in topics]).get()
+    results = pool.starmap_async(thread_worker, [(party_topic_fringe, [party, topic.id, rel_date]) for topic in topics[:5]]).get()
 
     pool.close()
     pool.join()
@@ -118,10 +118,10 @@ session = Session()
 #party_fringe(session, "Democrat", date(2014,2,1))
 #party_topic_fringe(session, "Republican", 1, date(2014,2,1))
 result = get_all_topic_fringes_concurrently("Republican", date(2014,2,1))
-with open('result/repub_topic_fringes.yaml', 'w') as outfile:
+with open('result/repub_topic_fringes.yaml', 'w+') as outfile:
    yaml.dump(result, outfile, default_flow_style=False)
 
-result = get_all_topic_fringes_concurrently("Democrat", date(2014,2,1))
-with open('result/democrat_topic_fringes.yaml', 'w') as outfile:
-   yaml.dump(result, outfile, default_flow_style=False)
+# result = get_all_topic_fringes_concurrently("Democrat", date(2014,2,1))
+# with open('result/democrat_topic_fringes.yaml', 'w+') as outfile:
+#    yaml.dump(result, outfile, default_flow_style=False)
 
