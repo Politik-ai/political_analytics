@@ -8,7 +8,7 @@ class TestQueries(unittest.TestCase):
 
     def test_politician_bills(self):
         polid = 5
-        pols = get_all_politician(session)
+        pols = get_all_politicians(session)
         for pol in pols:
             bills = politician_bills(session, pol.id)
             #print(len(bills.all()))

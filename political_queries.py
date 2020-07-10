@@ -118,6 +118,15 @@ def get_sponsors_from_bills(session, bill_query):
     sponsors = session.query(Politician).join(Sponsorship).join(bill_subquery, Bill.id == bill_subquery.id)
     return sponsors
 
+def get_sponsor_from_bill_id(session, bill_id):
+    return session.query(Politician).join(Sponsorship).filter(Sponsorship.bill_id == bill_id)
+
+def get_primary_sponsor_from_bill_id(session, bill_id):
+    return session.query(Politician).join(Sponsorship).filter(Sponsorship.bill_id == bill_id, Sponsorship.sponsor_type == 'primary')
+
+def get_topics_from_bill_id(session, bill_id):
+    return session.query(Topic).join(Bill_Topic).filter(Bill_Topic.bill_id == bill_id)
+
 #Given a party, return all politicians that have been a member of that party
 def party_politicians(session, party):
     return session.query(Politician).join(Politician_Term).filter(Politician_Term.party == party)
@@ -157,8 +166,8 @@ def topics_from_bills(session, bill_query):
 
 #BASIC GETS --------------------------------------------------------
 
-def get_all_politician(session):
-    return session.query(Politician.id).all()
+def get_all_politicians(session):
+    return session.query(Politician.id)
 def get_all_topics(session):
     return session.query(Topic).all()
 #Get a list of all parties represented in the Politician_Term table
