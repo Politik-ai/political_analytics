@@ -4,7 +4,7 @@ sys.path.append('../')
 sys.path.append('../../data_collection/database_filler')
 from framework import *
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import sessionmaker
 from political_queries import *
 sys.path.append(os.path.abspath('../../data_collection/database_filler'))
@@ -34,7 +34,12 @@ sponsors = subset
 
 polid_ids = [s.id for s in sponsors]
 
-for polid in polid_ids:
+print(polid_ids)
+
+scores = []
+
+for polid in polid_ids[0:1]:
+    print(f'Polid: {polid}')
     predictive_data = session.query(
         Bill_State, Vote_Politician
     ).join(
@@ -45,22 +50,42 @@ for polid in polid_ids:
         Vote_Politician, Vote_Politician.vote_id == Vote.id
     ).filter(
             Vote_Politician.polid == polid
+    # ).filter(
+    #     or_(Vote_Politician.response == 0, Vote_Politician.response == 1)
+    ).join(
+        Sponsorship
+    ).filter(
+        Sponsorship.sponsor_type == 'primary'
     ).yield_per(10000)
 
     df = pd.read_sql(predictive_data.statement, session.bind)
 
     if df.shape[0] < 100:
+        print('too little data, skipping')
         continue
+
+    print('Got dataframe')
+    # for response in df['response']:
+    #     if response == -2:
+    #         print('found 2')
+    #     #print(type(response))
+    #     print(response)
 
 
     sponsor_id_dict = {}
     topic_dict = {}
+    i = 0
+    num_bills = len(df['bill_id'])
     for bill_id in df['bill_id']:
+        print(f'getting {i}/{num_bills} topic/sponsors')
+        i += 1 
         s = get_sponsor_from_bill_id(session, bill_id)
         sponsor_id_dict[bill_id] = set([s.id for s in s.all()])
         
         t = get_topics_from_bill_id(session, bill_id)
         topic_dict[bill_id] = set([t.id for t in t.all()])
+
+    print('got topic_dicts')
 
 
     #Convert to categorical:
@@ -84,6 +109,8 @@ for polid in polid_ids:
     df['intro_date'] = dates
     #print(df.head())
 
+    print('got dates')
+
     #add topic columns to dataframe
     topics = get_all_topics(session)
     t_found = 0
@@ -92,7 +119,7 @@ for polid in polid_ids:
         bill_state_topic_list = []
         for bill_id in df['bill_id']:
             if t.id in topic_dict[bill_id]:
-                #print(f"T: {t_found}")
+                print(f"T: {t_found}")
                 t_found +=1
                 to_skip = False
                 bill_state_topic_list.append(1)
@@ -100,6 +127,8 @@ for polid in polid_ids:
                 bill_state_topic_list.append(0)
         if not to_skip:
             df[t.name] = bill_state_topic_list
+
+    print('got topics')
 
     #Add sponsor columns to dataframe
     sponsors = get_all_politicians(session)
@@ -121,8 +150,9 @@ for polid in polid_ids:
         if not to_skip:
             df["Sponsor: " + str(s.id)] = bill_state_topic_list
 
+    print('got sponsors')
+
     #With the sponsors and topics added, now separate the data into train/test/validate
-    print("Splitting data")
     from sklearn.model_selection import train_test_split
 
     #Split data into train and test subsets
@@ -140,33 +170,47 @@ for polid in polid_ids:
     #Run Regressions
     X = X_train[list(X_train)]
     Y = y_train
-    from sklearn.linear_model import LinearRegression
-    #Without interaction Variables
-    linear_model = LinearRegression().fit(X, Y)
-    print('finished linear model')
-    print("Model score:")
-    print(linear_model.score(X_test,y_test))
+    from sklearn.linear_model import LinearRegression, LogisticRegression
+
+    # #Without interaction Variables
+    # # linear_model = LinearRegression().fit(X, Y)
+    # # print('finished linear model')
+    # # print("Model score:")
+    # # print(linear_model.score(X_test,y_test))
+
+    logistic_model = LogisticRegression().fit(X, Y)
+    print('Logistic Model:')
+    score = logistic_model.score(X_test, y_test)
+    print(score)
+    scores.append(score)
 
 
-    #In order to remove the increased variable complexity of adding interaction terms to a linear model, consider
-    #A Ridge Regression
-    from sklearn.linear_model import Ridge
-    ridge_reg = Ridge(alpha=1.0)
-    ridge_model = ridge_reg.fit(X_train,y_train)
-    print("Ridge model score:")
-    print(ridge_model.score(X_test,y_test))
 
 
-    #Lasso Regression
-    from sklearn.linear_model import Lasso
-    lasso_reg = Lasso(alpha=1.0)
-    lasso_model = lasso_reg.fit(X_train,y_train)
-    print("Lasso model score:")
-    print(lasso_model.score(X_test,y_test))
 
 
-    #PLS Regression
-    from sklearn.cross_decomposition import PLSRegression
-    pls = PLSRegression(n_components=2)
-    pls_reg = pls.fit(X_train,y_train)
-    print(f"Score: {pls_reg.score(X_test,y_test)}")
+    # #In order to remove the increased variable complexity of adding interaction terms to a linear model, consider
+    # #A Ridge Regression
+    # from sklearn.linear_model import Ridge
+    # ridge_reg = Ridge(alpha=1.0)
+    # ridge_model = ridge_reg.fit(X_train,y_train)
+    # print("Ridge model score:")
+    # print(ridge_model.score(X_test,y_test))
+
+
+    # #Lasso Regression
+    # from sklearn.linear_model import Lasso
+    # lasso_reg = Lasso(alpha=1.0)
+    # lasso_model = lasso_reg.fit(X_train,y_train)
+    # print("Lasso model score:")
+    # print(lasso_model.score(X_test,y_test))
+
+
+    # #PLS Regression
+    # from sklearn.cross_decomposition import PLSRegression
+    # pls = PLSRegression(n_components=2)
+    # pls_reg = pls.fit(X_train,y_train)
+    # print(f"Score: {pls_reg.score(X_test,y_test)}")
+
+print("Average score:")
+print(sum(scores)/len(scores))
