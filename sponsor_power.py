@@ -36,25 +36,24 @@ def get_sponsorship_vote_power_by_party_topic(session, polid, pol_name, party, r
 
     topics = get_all_topics(session)
     power_dict = {}
-    if len(bills.all()) == 0:
+    if bills.count() == 0:
         return {}
 
     for topic in topics:
         topic_bills = filter_bills_by_topic(session, bills, topic.id)
-        #print(f"Num topic bills: {len(topic_bills.all())}")
 
-        if len(topic_bills.all()) == 0:
+        if topic_bills.count() == 0:
             continue
         topic_votes = votes_from_bills(session, topic_bills)
 
         #When a bill is never even voted on, how should it be considered? 
-        print(f"Num votes: {len(topic_votes.all())}")
-        if len(topic_votes.all()) == 0:
+        print(f"Num votes: {topic_votes.count()}")
+        if topic_votes.count() == 0:
             continue
 
         #Filter votes by party
         pol_topic_votes = pol_votes_from_party(session, topic_votes, party)
-        print(f"Num pol-votes: {len(pol_topic_votes.all())}")
+        print(f"Num pol-votes: {pol_topic_votes.count()}")
 
         #Currently just taking pass percentage of all votes discarding no-votes
         power_dict[topic.name] = pass_stats_average(pass_stats(pol_topic_votes))
@@ -92,20 +91,24 @@ def get_sponsorship_agenda_power_by_party_topic(session, polid, pol_name, rel_da
     topics = get_all_topics(session)
     power_dict = {}
 
-    if len(bills.all()) == 0:
+    if bills.count() == 0:
         return {}
 
-    #print(f"Polid: {polid}")
+    print(f"Polid: {polid}")
     for topic in topics:
+        #print(topic.name)
         topic_bills = filter_bills_by_topic(session, bills, topic.id)
-        num_bills = len(topic_bills.all())
+        num_bills = topic_bills.count()
         if num_bills == 0:
+            print('no bills, skipping')
             continue
-        num_votes = len(votes_from_bills(session, topic_bills).all())
+        num_votes = votes_from_bills(session, topic_bills).count()
 
         #When a bill is never even voted on, how should it be considered? 
         #Currently just taking pass percentage of all votes discarding no-votes
         power_dict[topic.name] = {'Votes':num_votes, 'Bills':num_bills}
+        #print(power_dict)
+        print('got results')
         
     return {polid: {'Name':pol_name, 'Topics':power_dict}}
 
@@ -113,8 +116,8 @@ def get_sponsorship_agenda_power_by_party_topic(session, polid, pol_name, rel_da
 def get_sponsporship_agenda_power_in_party(party, rel_dates, primary, thread_number = 11):
     session = Session()
     pols = party_politicians(session, party)
-    pols = filter_pols_by_date(session, pols, rel_dates[0])
-    print(f"Number of politicians: {len(pols.all())}")
+    pols = filter_pols_by_date(session, pols, rel_dates[0]).all()
+    print(f"Number of politicians: {len(pols)}")
     session.close()
     pool = ThreadPool(processes = thread_number)
     results = pool.starmap_async(thread_worker, [(get_sponsorship_agenda_power_by_party_topic, [pol.id, "test", rel_dates, primary]) for pol in pols])
@@ -144,12 +147,18 @@ def general_sponsorship_agenda_power(session, polid, pol_name, rel_dates, primar
     votes = votes_from_bills(session, bills)
 
     #Currently just taking pass percentage of all votes discarding no-votes
-    return {polid:  {'Name':pol_name, 'Ratio':len(votes.all())/len(bills.all()), 'Votes': len(votes.all()), 'Bills': len(bills.all())}}
+    votes = votes.count()
+    bills = bills.count()
+    if bills == 0:
+        ratio = 0
+    else:
+        ratio = votes/bills
+    return {'id':polid, 'Name':pol_name, 'Ratio':ratio, 'Votes': votes, 'Bills': bills}
 
 #Get general sponsorship power for all politicians in a party
 def get_general_sponsorship_agenda_power(party, rel_dates, primary, thread_number = 12):
     session = Session()
-    pols = filter_pols_by_date(session, party_politicians(session, party), rel_dates[0])
+    pols = filter_pols_by_date(session, party_politicians(session, party), rel_dates[0]).all()
     session.close()
     pool = ThreadPool(processes = thread_number)
     results = pool.starmap_async(thread_worker, [(general_sponsorship_agenda_power, [pol.id, pol.first_name + " " + pol.last_name, rel_dates, primary]) for pol in pols]).get()
@@ -158,18 +167,22 @@ def get_general_sponsorship_agenda_power(party, rel_dates, primary, thread_numbe
     pool.join()
     total_results = {}
 
+    def get_ratio(item):
+        return item['Ratio']
 
-    for r in results:
-        total_results.update(r)
-    
-    return total_results
+    results.sort(key = get_ratio)
+
+    return results
 
 
 #Testing results
-result = get_general_sponsorship_agenda_power('Democrat', [date(2013,2,1), date(2014,2,1)], True)
-with open('results/general_sponsor_power.yaml', 'w') as outfile:
+result = get_general_sponsorship_agenda_power('Democrat', [date(2010,2,1), date(2019,2,1)], True)
+with open('results/dem_general_sponsor_power.yaml', 'w+') as outfile:
+    yaml.dump(result, outfile, default_flow_style=False)
+result = get_general_sponsorship_agenda_power('Republican', [date(2010,2,1), date(2019,2,1)], True)
+with open('results/gop_general_sponsor_power.yaml', 'w+') as outfile:
     yaml.dump(result, outfile, default_flow_style=False)
 print('simple done')
-result = get_sponsporship_agenda_power_in_party('Democrat', [date(2013,2,1), date(2014,2,1)], True)
-with open('results/topic_specific_sponsor_power.yaml', 'w') as outfile:
-    yaml.dump(result, outfile, default_flow_style=False)
+# result = get_sponsporship_agenda_power_in_party('Democrat', [date(2013,2,1), date(2014,2,1)], True)
+# with open('results/topic_specific_sponsor_power.yaml', 'w') as outfile:
+#     yaml.dump(result, outfile, default_flow_style=False)

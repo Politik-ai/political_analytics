@@ -37,7 +37,7 @@ def get_topic_info_by_state(session, state, rel_dates = None):
 
     topic_dict = {}
     result = result.all()
-    num_bills = len(result)
+    num_bills = result.count()
     for r in result:
         topic_dict[r[0]] = r[1]/num_bills
         #print(f"{r[0]}: {topic_dict[r[0]]}")
@@ -71,7 +71,7 @@ for state in state_specific_result:
 
 
     state_politicians = session.query(Politician_Term).filter(Politician_Term.state == state).filter(Politician_Term.start_date <= date(2014,2,1), Politician_Term.end_date >= date(2014,2,1))
-    num_pols = len(state_politicians.all())
+    num_pols = state_politicians.count()
     
     state_results = state_specific_result[state]
     state_ratios = {}

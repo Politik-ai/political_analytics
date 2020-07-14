@@ -146,7 +146,8 @@ def get_leadership_periods(session, polid):
         periods.append(tuple(role.start_date,role.end_date))
     return periods
 
-
+def count_results(session, query):
+    return query.count()
 
 #TODO: TEST
 #Get all leaders of given party
@@ -210,10 +211,12 @@ def politician_topic_votes(session, polid, topic_id):
 
 #Given Pol_Vote query, return formatted dict showing results of those votes.
 def pass_stats(vote_query):
-    num_votes = len(vote_query.all())
+    #num_votes = len(vote_query.all())
     vote_translator = {-2:'aqui',-1:'no_vote',0:'no',1:'aye'}
     vote_dict = {'aye':0,'no':0,'aqui':0,'no_vote':0}
+    i = 0
     for v in vote_query:
+        i += 1
         vote_dict[vote_translator[v.response]] += 1
     return vote_dict
 
