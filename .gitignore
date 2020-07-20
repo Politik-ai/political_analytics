@@ -1,2 +1,6 @@
 *.pyc
-*__pycache__*
+*__pycache__/*
+results/*
+predictions/data.pkl
+predictions/df.csv
+predictions/df.xlsx
