@@ -105,13 +105,12 @@ class TestQueries(unittest.TestCase):
         #for p in periods:
 
     def test_topics_from_bills(self):
-        topics_set = {1,2}
+        topics_set = {50,204}
 
         topic1_bills = topic_bills(session, 1)
         topic2_bills = topic_bills(session, 2)
         t_bills = topic1_bills.union(topic2_bills)
         topics = topics_from_bills(session, t_bills)
-
         found_topics = set()
         for t in topics:
             found_topics.add(t.id)
