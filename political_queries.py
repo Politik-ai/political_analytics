@@ -3,7 +3,6 @@ from init_db import *
 from framework import *
 from sqlalchemy import join
 from bill_status import *
-#session = Session()
 
 
 #BASIC QUERIES -----------------------------------------------------
@@ -36,9 +35,27 @@ def party_primary_sponsor_bills(session, party):
 def pol_sponsored_bills(session, polid):
     return session.query(Bill).join(Sponsorship).filter(Sponsorship.polid == polid)
 
-#Returns bills between given dates
-def bill_states_bw_dates(session, before_date, after_date):
-    return session.query(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
+#Return all bills primarily sponsored by a given politician
+def pol_primary_sponsored_bills(session, polid):
+    return session.query(Bill).join(Sponsorship).filter(Sponsorship.polid == polid, Sponsorship.sponsor_type == 'primary')
+
+#Returns bill states active between given dates
+def bill_states_bw_dates(session, before_date, after_date, bill_state_query = None):
+    if not bill_state_query:
+        return session.query(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
+    else:
+        bill_state_subquery = bill_state_query.subquery()
+        b_id, bill_code, status, originating_body = tuple(bill_state_subquery.c)
+        return session.query(Bill_State).join(bill_state_subquery, Bill_State.id == b_id).filter(Bill_State.intro_date.between(before_date,after_date))
+
+#Returns bills active between given dates
+def bill_bw_dates(session, before_date, after_date, bill_query = None):
+    if not bill_query:
+        return session.query(Bill).join(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
+    else:
+        bill_subquery = bill_query.subquery()
+        b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
+        return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
 
 #Returns politicians that represent a given state
 def politicians_from_state(session, state):
@@ -52,20 +69,47 @@ def politicians_from_district(session, district):
 def votes_from_bills(session, bill_query):
     bill_subquery = bill_query.subquery()
     b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
-
     votes = session.query(Vote).join(Bill_State).join(bill_subquery, Bill_State.bill_id == b_id)
     return votes
 
+#Get pol_votes associated with given vote_query for a given polid
 def pol_votes_from_votes(session, vote_query, polid):
     vote_sub = vote_query.subquery()
     v_id, bs_id, vote_date = vote_sub.c
     return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id).filter(Vote_Politician.polid == polid)
 
+#Get all pol_votes associated with given vote_query
+def vote_pols_from_votes(session, vote_query):
+    vote_sub = vote_query.subquery()
+    v_id, bs_id, vote_date = vote_sub.c
+    return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id)
+
 #Filter politicians by ones that were active on given date
-def filter_pols_by_congress(session, pol_query, filter_date):
+def filter_pols_by_date(session, pol_query, filter_date):
     pol_sub = pol_query.subquery()
     return session.query(Politician).join(pol_sub, pol_sub.c.id == Politician.id).join(Politician_Term).filter(Politician_Term.start_date <= filter_date, Politician_Term.end_date >= filter_date)
+
+#Returns subset of given pols that were from a given state
+def filter_pols_by_state(session, pol_query, state):
+    pol_sub = pol_query.subquery()
+    return session.query(Politician).join(pol_sub, pol_sub.c.id == Politician.id).join(Politician_Term).filter(Politician_Term.state == state)
     
+#Return subset of given bills that contain given topic
+def filter_bills_by_topic(session, bill_query, topic_id):
+    bill_subquery = bill_query.subquery()
+    b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
+    return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_Topic).filter(Bill_Topic.topic_id == topic_id)
+
+#Given vote_query, return pol_votes that are from a given party
+def pol_votes_from_party(session, vote_query, party):
+    vote_sub = vote_query.subquery()
+    v_id, bs_id, vote_date = vote_sub.c
+    return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id)\
+        .join(Bill_State).join(Politician).join(Politician_Term)\
+        .filter(Politician_Term.party == party, \
+        Politician_Term.start_date <= Bill_State.intro_date, \
+        Politician_Term.end_date >= Bill_State.intro_date)
+
 
 #TODO: TEST
 #Get all sponsors for a given list of bills (bill_query)
@@ -73,6 +117,15 @@ def get_sponsors_from_bills(session, bill_query):
     bill_subquery = bill_query.subquery()
     sponsors = session.query(Politician).join(Sponsorship).join(bill_subquery, Bill.id == bill_subquery.id)
     return sponsors
+
+def get_sponsor_from_bill_id(session, bill_id):
+    return session.query(Politician).join(Sponsorship).filter(Sponsorship.bill_id == bill_id)
+
+def get_primary_sponsor_from_bill_id(session, bill_id):
+    return session.query(Politician).join(Sponsorship).filter(Sponsorship.bill_id == bill_id, Sponsorship.sponsor_type == 'primary')
+
+def get_topics_from_bill_id(session, bill_id):
+    return session.query(Topic).join(Bill_Topic).filter(Bill_Topic.bill_id == bill_id)
 
 #Given a party, return all politicians that have been a member of that party
 def party_politicians(session, party):
@@ -93,6 +146,8 @@ def get_leadership_periods(session, polid):
         periods.append(tuple(role.start_date,role.end_date))
     return periods
 
+def count_results(session, query):
+    return query.count()
 
 #TODO: TEST
 #Get all leaders of given party
@@ -112,8 +167,8 @@ def topics_from_bills(session, bill_query):
 
 #BASIC GETS --------------------------------------------------------
 
-def get_all_politician(session):
-    return session.query(Politician.id).all()
+def get_all_politicians(session):
+    return session.query(Politician.id)
 def get_all_topics(session):
     return session.query(Topic).all()
 #Get a list of all parties represented in the Politician_Term table
@@ -121,7 +176,7 @@ def get_all_parties(session):
     return session.query(Politician_Term.party).distinct()
 #Get all states represented by Politician_Terms
 def get_all_states(session):
-    return session.query(Politician_Term.state).distinct()
+    return [item[0] for item in session.query(Politician_Term.state).distinct()]
 #Get all districts represented by Politician_Terms
 def get_all_districts(session):
     return session.query(Politician_Term.district).distinct()
@@ -129,7 +184,7 @@ def get_all_districts(session):
 def get_leadership(session):
     return session.query(Politician).join(Leadership_Role)
 #Get all active politician terms on a given date
-def get_politician_terms_on_day(date, session):
+def get_politician_terms_on_day(session, date):
     return session.query(Politician_Term).filter(Politician_Term.start_date <= date, Politician_Term.end_date >= date)
 
 #COMBINATION QUERIES -----------------------------------------------
@@ -156,36 +211,48 @@ def politician_topic_votes(session, polid, topic_id):
 
 #Given Pol_Vote query, return formatted dict showing results of those votes.
 def pass_stats(vote_query):
-    num_votes = len(vote_query.all())
+    #num_votes = len(vote_query.all())
     vote_translator = {-2:'aqui',-1:'no_vote',0:'no',1:'aye'}
     vote_dict = {'aye':0,'no':0,'aqui':0,'no_vote':0}
+    i = 0
     for v in vote_query:
+        i += 1
         vote_dict[vote_translator[v.response]] += 1
     return vote_dict
 
 #Given Vote query, get formatted dict of the results of that vote
-def vote_result(vote, session):
+def vote_result(session, vote):
     pol_votes = session.query(Vote_Politician).join(vote.subquery(), vote.id == Vote_Politician.vote_id)
     return pass_stats(pol_votes)
 
 def votes_summary(votes):
     results = {}
     for v in votes:
+        new_stats = pass_stats(v)
         results.update(pass_stats(v))
     return results
 
-#Returns single summary dict of given bills
-def bill_query_result_summary(bills, session):
+#Returns single summary dict of given billsget
+def bill_query_result_summary(session, bills):
     votes = votes_from_bills(bills)
     return votes_summary(votes)
 
 #Given politician, create by-topic summary of votes
-def pol_topic_stats(polid, session):
+def pol_topic_stats(session, polid):
     stats = {}
     for t in get_all_topics(session):
         topic_votes = politician_topic_votes(polid, t.id, session)
         stats[t.name] = votes_summary(topic_votes)
     return stats
+
+def pass_stats_average(pol_results):
+    total_votes = sum(pol_results.values()) - pol_results['no_vote']
+    if total_votes == 0:
+        return 0
+    ratio = round(pol_results['aye']/total_votes ,3)
+    return ratio
+
+
             
 
 #COMPARING RESULTS-----------------------------------------------------------------------
