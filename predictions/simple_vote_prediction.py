@@ -7,6 +7,7 @@ import pandas as pd
 from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import sessionmaker
 from political_queries import *
+import yaml
 sys.path.append(os.path.abspath('../../data_collection/database_filler'))
 engine = create_engine('sqlite:///' + os.path.abspath('../../data_collection/political_db.db'), echo=False)
 Session = sessionmaker(bind=engine)
@@ -31,6 +32,12 @@ sponsors = get_all_politicians(session)
 test_date = date(2014,3,3)
 subset = filter_pols_by_date(session, sponsors, test_date)
 sponsors = subset
+
+sponsor_id_dict, topic_dict = None, None
+with open("sponsor_id.yaml") as sponsor_id:
+    sponsor_id_dict = yaml.load(sponsor_id, Loader=yaml.FullLoader)
+with open("topic.yaml") as topic:
+    topic_dict = yaml.load(topic, Loader=yaml.FullLoader)
 
 polid_ids = [s.id for s in sponsors]
 
@@ -71,21 +78,9 @@ for polid in polid_ids[0:1]:
     #     #print(type(response))
     #     print(response)
 
-
-    sponsor_id_dict = {}
-    topic_dict = {}
     i = 0
     num_bills = len(df['bill_id'])
-    for bill_id in df['bill_id']:
-        print(f'getting {i}/{num_bills} topic/sponsors')
-        i += 1 
-        s = get_sponsor_from_bill_id(session, bill_id)
-        sponsor_id_dict[bill_id] = set([s.id for s in s.all()])
-        
-        t = get_topics_from_bill_id(session, bill_id)
-        topic_dict[bill_id] = set([t.id for t in t.all()])
-
-    print('got topic_dicts')
+    print('got num_bills')
 
 
     #Convert to categorical:
