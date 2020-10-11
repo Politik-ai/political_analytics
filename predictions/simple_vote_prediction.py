@@ -10,6 +10,7 @@ from political_queries import *
 sys.path.append(os.path.abspath('../../data_collection/database_filler'))
 engine = create_engine('sqlite:///' + os.path.abspath('../../data_collection/political_db.db'), echo=False)
 Session = sessionmaker(bind=engine)
+import pickle
 
 #What columns do we want 
 """
@@ -34,12 +35,11 @@ sponsors = subset
 
 polid_ids = [s.id for s in sponsors]
 
-print(polid_ids)
 
 scores = []
 
-for polid in polid_ids[0:1]:
-    print(f'Polid: {polid}')
+for polid in polid_ids:
+    print(f'Polid: {polid}/{len(polid_ids)}')
     predictive_data = session.query(
         Bill_State, Vote_Politician
     ).join(
@@ -60,11 +60,11 @@ for polid in polid_ids[0:1]:
 
     df = pd.read_sql(predictive_data.statement, session.bind)
 
-    if df.shape[0] < 100:
+    if df.shape[0] < 50:
         print('too little data, skipping')
         continue
 
-    print('Got dataframe')
+    #print('Got dataframe')
     # for response in df['response']:
     #     if response == -2:
     #         print('found 2')
@@ -76,8 +76,9 @@ for polid in polid_ids[0:1]:
     topic_dict = {}
     i = 0
     num_bills = len(df['bill_id'])
+    print(f"Num bills: {num_bills}")
     for bill_id in df['bill_id']:
-        print(f'getting {i}/{num_bills} topic/sponsors')
+        #print(f'getting {i}/{num_bills} topic/sponsors')
         i += 1 
         s = get_sponsor_from_bill_id(session, bill_id)
         sponsor_id_dict[bill_id] = set([s.id for s in s.all()])
@@ -85,7 +86,7 @@ for polid in polid_ids[0:1]:
         t = get_topics_from_bill_id(session, bill_id)
         topic_dict[bill_id] = set([t.id for t in t.all()])
 
-    print('got topic_dicts')
+    #print('got topic_dicts')
 
 
     #Convert to categorical:
@@ -109,7 +110,7 @@ for polid in polid_ids[0:1]:
     df['intro_date'] = dates
     #print(df.head())
 
-    print('got dates')
+    #print('got dates')
 
     #add topic columns to dataframe
     topics = get_all_topics(session)
@@ -119,7 +120,7 @@ for polid in polid_ids[0:1]:
         bill_state_topic_list = []
         for bill_id in df['bill_id']:
             if t.id in topic_dict[bill_id]:
-                print(f"T: {t_found}")
+                #print(f"T: {t_found}")
                 t_found +=1
                 to_skip = False
                 bill_state_topic_list.append(1)
@@ -152,6 +153,10 @@ for polid in polid_ids[0:1]:
 
     print('got sponsors')
 
+    df_location = f"dataframe_by_pol/df_{polid}"
+    df.to_csv(f"dataframe_by_pol/df_{polid}")
+
+
     #With the sponsors and topics added, now separate the data into train/test/validate
     from sklearn.model_selection import train_test_split
 
@@ -172,21 +177,14 @@ for polid in polid_ids[0:1]:
     Y = y_train
     from sklearn.linear_model import LinearRegression, LogisticRegression
 
-    # #Without interaction Variables
-    # # linear_model = LinearRegression().fit(X, Y)
-    # # print('finished linear model')
-    # # print("Model score:")
-    # # print(linear_model.score(X_test,y_test))
-
     logistic_model = LogisticRegression().fit(X, Y)
     print('Logistic Model:')
     score = logistic_model.score(X_test, y_test)
     print(score)
     scores.append(score)
 
-
-
-
+    pickle.dump(logistic_model, open(f"models/{polid}_logreg_model.sav", 'wb'))
+    #How to load: https://machinelearningmastery.com/save-load-machine-learning-models-python-scikit-learn/
 
 
     # #In order to remove the increased variable complexity of adding interaction terms to a linear model, consider
