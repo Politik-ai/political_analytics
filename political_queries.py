@@ -3,6 +3,7 @@ from init_db import *
 from framework import *
 from sqlalchemy import join
 from bill_status import *
+from sqlalchemy import func
 
 
 #BASIC QUERIES -----------------------------------------------------
@@ -56,6 +57,13 @@ def bill_bw_dates(session, before_date, after_date, bill_query = None):
         bill_subquery = bill_query.subquery()
         b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
         return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
+
+#Returns the date ranges of the current db
+def get_bill_state_date_ranges(session):
+
+    qry = session.query(func.min(Bill_State.intro_date).label("min_date"), func.max(Bill_State.intro_date).label("max_date"))
+    res = qry.one()
+    return [res.min_date, res.max_date]
 
 #Returns politicians that represent a given state
 def politicians_from_state(session, state):
@@ -115,8 +123,42 @@ def pol_votes_from_party(session, vote_query, party):
 #Get all sponsors for a given list of bills (bill_query)
 def get_sponsors_from_bills(session, bill_query):
     bill_subquery = bill_query.subquery()
-    sponsors = session.query(Politician).join(Sponsorship).join(bill_subquery, Bill.id == bill_subquery.id)
+    sponsors = session.query(
+        Sponsorship
+        ).join(
+            bill_subquery, Sponsorship.bill_id == bill_subquery.c.id)
     return sponsors
+
+#Get all sponsors for a given list of bills (bill_query)
+"""
+def get_sponsors_from_billstates(session, bill_state_query):
+    #bill_state_subquery = bill_state_query.subquery()
+    #print(bill_state_subquery.c)
+    #bill_id = bill_state_subquery.c[1]
+    #b_id, bill_code, status, originating_body = tuple(bill_state_subquery.c)
+    bs_sub = bill_state_query.subquery()
+
+    bs_ids = Sponsorship.query.join(Bill).join(Bill)
+
+    print(bs_ids)
+    print('-----')
+    #s = session.query(Sponsorship).join(Bill).filter(Bill.id.in_(bs_ids))
+    s = bs_ids
+    #sponsors = bill_state_query.join(Bill).join(Sponsorship)
+    return s
+    """
+
+def party_only_sponsorships(session, sponsor_query, party, range):
+
+    party_pols = session.query(Politician_Term).filter(Politician_Term.start_date <= range[0], Politician_Term.end_date >= range[1]).subquery()
+    
+    q = sponsor_query.join(Politician).join(party_pols, Politician.id == party_pols.c.polid)
+    #print(q)
+    return q
+    #sponsor_subquery = sponsor_query.subquery()
+    #sponsors = session.query(Sponsorship).filter(sponsor_subquery).join(Politician).join(Politician_Term).filter(Politician_Term.party == party)
+    #print(sponsors.first())
+    #return sponsors
 
 def get_sponsor_from_bill_id(session, bill_id):
     return session.query(Politician).join(Sponsorship).filter(Sponsorship.bill_id == bill_id)
