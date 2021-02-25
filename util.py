@@ -3,7 +3,10 @@
 import calendar
 import datetime
 
-
+from init_db import *
+from framework import *
+import sys, os
+from political_queries import *
 
 
 
@@ -39,4 +42,11 @@ def discretized_by_months(earliest, latest):
         discretizations.append(cur_range)
 
     return discretizations
+
+
+
+def get_count(q):
+    count_q = q.statement.with_only_columns([func.count()]).order_by(None)
+    count = q.session.execute(count_q).scalar()
+    return count
 

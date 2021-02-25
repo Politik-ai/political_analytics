@@ -31,7 +31,7 @@ class TestQueries(unittest.TestCase):
         pol_votes = politician_topic_votes(session, polid, topic_id)
         failed = False
         for v in pol_votes:
-            self.assertEqual(polid, v.polid)
+            self.assertEqual(polid, v.politician_id)
             topics = session.query(Topic).filter(Topic.id == topic_id).join(Bill_Topic).join(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.id == v.id)
             self.assertFalse(not topics.all())
 
@@ -55,7 +55,7 @@ class TestQueries(unittest.TestCase):
         politicians = politicians_from_state(session, state)
 
         for p in politicians:
-            pol_states = session.query(Politician_Term).filter(Politician_Term.polid == p.id)
+            pol_states = session.query(Politician_Term).filter(Politician_Term.politician_id == p.id)
             for ps in pol_states:
                 self.assertEqual(ps.state, state)
 
@@ -64,7 +64,7 @@ class TestQueries(unittest.TestCase):
         politicians = politicians_from_district(session, district)
         for p in politicians:
             found = False
-            pol_district = session.query(Politician_Term).filter(Politician_Term.polid == p.id)
+            pol_district = session.query(Politician_Term).filter(Politician_Term.politician_id == p.id)
             for ps in pol_district:
                 if ps.district == district:
                     found = True
@@ -84,15 +84,15 @@ class TestQueries(unittest.TestCase):
             return
 
         for v in votes:
-            bill_id = session.query(Bill.id).join(Bill_State).filter(Bill_State.id == v.bill_state_id).first()[0]
-            self.assertTrue(bill_id in bill_ids)
+            bill = session.query(Bill).filter(Bill.id == v.bill_id).first()
+            self.assertTrue(bill.id in bill_ids)
             #NOTE: FOR INCREASED ROBUSTNESS, also check that each bill is accounted for in votes
 
     def test_party_politician(self):
         test_party = "Democrat"
         pols = party_politicians(session, test_party)
         for p in pols:
-            terms = session.query(Politician_Term).filter(Politician_Term.polid == p.id)
+            terms = session.query(Politician_Term).filter(Politician_Term.politician_id == p.id)
             was_party = False
             for t in terms:
                 was_party = was_party or (t.party == test_party)

@@ -8,8 +8,8 @@ from sqlalchemy import func
 
 #BASIC QUERIES -----------------------------------------------------
 #Get all bills that were voted upon by a given politician
-def politician_bills(session, polid):
-    result = session.query(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.polid == polid)
+def politician_bills(session, politician_id):
+    result = session.query(Bill).join(Bill_State).join(Vote).join(Vote_Politician).filter(Vote_Politician.politician_id == politician_id)
     return result   
 
 def get_all_bills_voted_on(session):
@@ -33,8 +33,8 @@ def party_primary_sponsor_bills(session, party):
     return party_bills
 
 #Return all bills sponsored by a given politician
-def pol_sponsored_bills(session, polid):
-    return session.query(Bill).join(Sponsorship).filter(Sponsorship.polid == polid)
+def pol_sponsored_bills(session, politician_id):
+    return session.query(Bill).join(Sponsorship).filter(Sponsorship.politician_id == politician_id)
 
 #Return all bills primarily sponsored by a given politician
 def pol_primary_sponsored_bills(session, polid):
@@ -75,9 +75,9 @@ def politicians_from_district(session, district):
 
 #Given query of Bills, what are all of the votes associated?
 def votes_from_bills(session, bill_query):
-    bill_subquery = bill_query.subquery()
-    b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
-    votes = session.query(Vote).join(Bill_State).join(bill_subquery, Bill_State.bill_id == b_id)
+    bill_subquery = bill_query.with_entities(Bill.id).subquery()
+    #b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
+    votes = session.query(Vote).join(Bill).filter(Bill.id.in_(bill_subquery))
     return votes
 
 #Get pol_votes associated with given vote_query for a given polid
@@ -91,6 +91,11 @@ def vote_pols_from_votes(session, vote_query):
     vote_sub = vote_query.subquery()
     v_id, bs_id, vote_date = vote_sub.c
     return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id)
+
+def votes_between_dates(session, range, vote_query):
+    vote_sub = vote_query.subquery()
+    
+    return session.query(Vote).filter(Vote.vote_date.between(*range))
 
 #Filter politicians by ones that were active on given date
 def filter_pols_by_date(session, pol_query, filter_date):
@@ -150,9 +155,13 @@ def get_sponsors_from_billstates(session, bill_state_query):
 
 def party_only_sponsorships(session, sponsor_query, party, range):
 
-    party_pols = session.query(Politician_Term).filter(Politician_Term.start_date <= range[0], Politician_Term.end_date >= range[1]).subquery()
+    party_pols = session.query(Politician_Term).\
+    filter(Politician_Term.start_date >= range[0],\
+     Politician_Term.end_date >= range[1]).\
+     filter(Politician_Term.party == party).with_entities(Politician_Term.politician_id)
     
-    q = sponsor_query.join(Politician).join(party_pols, Politician.id == party_pols.c.polid)
+    q = sponsor_query.join(Politician).filter(Politician.id.in_(party_pols.subquery()))
+
     #print(q)
     return q
     #sponsor_subquery = sponsor_query.subquery()
@@ -238,14 +247,13 @@ def politician_topic_bills(session, polid, topic_id):
     return pol_topic_bills
 
 #Given a politician and Topic, return the set of votes that the politician voted on with that Bill topic. 
-def politician_topic_votes(session, polid, topic_id):
-    pol_topic_bills = politician_topic_bills(session, polid, topic_id).subquery()
+def politician_topic_votes(session, politician_id, topic_id):
+    pol_topic_bills = politician_topic_bills(session, politician_id, topic_id).with_entities(Bill.id)
     
-    b_id, bill_code, status, originating_body = tuple(pol_topic_bills.c)
+    #b_id, bill_code, status, originating_body = tuple(pol_topic_bills.c)
 
-    topic_votes = session.query(Vote_Politician).filter(Vote_Politician.polid == polid) \
-        .join(Vote).join(Bill_State).join(Bill) \
-        .join(pol_topic_bills, Bill.id == b_id)
+    topic_votes = session.query(Vote_Politician).filter(Vote_Politician.politician_id == politician_id) \
+        .join(Vote).join(Bill).filter(Bill.id.in_(pol_topic_bills.subquery()))
     return topic_votes
 
 
