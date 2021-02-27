@@ -44,6 +44,35 @@ def discretized_by_months(earliest, latest):
     return discretizations
 
 
+def discretized_by_weeks(earliest, latest):
+
+    [first_month, first_year] = [earliest.month, earliest.year]
+    [last_month, last_year] = [latest.month, latest.year]
+    _ , last_day = calendar.monthrange(last_year, last_month)
+
+    end_date = datetime.datetime(last_year, last_month, last_day)    
+    cur_date = datetime.datetime(first_year, first_month, 1)
+    discretizations = []
+
+    week_start = cur_date
+
+    while week_start < end_date:
+
+        week_end = week_start + datetime.timedelta(days=6)
+
+        #next_month = ((cur_date.month) % 12) + 1
+        #if next_month == 1:
+        #    next_year = cur_date.year + 1
+        #else:
+        #    next_year = cur_date.year
+        #cur_date = cur_date.replace(day=1, month=next_month, year=next_year)
+
+        discretizations.append([week_start, week_end])
+        week_start = week_end + datetime.timedelta(days=1)
+
+    return discretizations
+
+
 
 def get_count(q):
     count_q = q.statement.with_only_columns([func.count()]).order_by(None)

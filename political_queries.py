@@ -88,14 +88,17 @@ def pol_votes_from_votes(session, vote_query, polid):
 
 #Get all pol_votes associated with given vote_query
 def vote_pols_from_votes(session, vote_query):
-    vote_sub = vote_query.subquery()
-    v_id, bs_id, vote_date = vote_sub.c
-    return session.query(Vote_Politician).join(Vote).join(vote_sub, v_id == Vote.id)
 
-def votes_between_dates(session, range, vote_query):
-    vote_sub = vote_query.subquery()
+    vote_sub = vote_query.with_entities(Vote.id).subquery()
+
+    return session.query(Vote_Politician).join(Vote).filter(Vote.id.in_(vote_sub))
+
+def votes_between_dates(session, range, vote_query = None):
+    if not vote_query:
+        return session.query(Vote).filter(Vote.vote_date.between(*range))
     
-    return session.query(Vote).filter(Vote.vote_date.between(*range))
+    vote_sub = vote_query.with_entities(Vote.id).subquery()
+    return session.query(Vote).filter(Vote.vote_date.between(*range)).filter(Vote.id.in_(vote_sub))
 
 #Filter politicians by ones that were active on given date
 def filter_pols_by_date(session, pol_query, filter_date):
