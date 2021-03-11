@@ -5,7 +5,8 @@ from sqlalchemy import func
 from datetime import date
 from multiprocessing_base import*
 import yaml
-
+sys.path.append(os.path.abspath('../data_collection/database_filler'))
+from base import get_session
 
 #For each pol:
 """
@@ -156,8 +157,8 @@ def general_sponsorship_agenda_power(session, polid, pol_name, rel_dates, primar
     return {'id':polid, 'Name':pol_name, 'Ratio':ratio, 'Votes': votes, 'Bills': bills}
 
 #Get general sponsorship power for all politicians in a party
-def get_general_sponsorship_agenda_power(party, rel_dates, primary, thread_number = 12):
-    session = Session()
+def get_general_sponsorship_agenda_power(db_location, party, rel_dates, primary, thread_number = 12):
+    session = get_session(db_location)
     pols = filter_pols_by_date(session, party_politicians(session, party), rel_dates[0]).all()
     session.close()
     pool = ThreadPool(processes = thread_number)
@@ -174,9 +175,10 @@ def get_general_sponsorship_agenda_power(party, rel_dates, primary, thread_numbe
 
     return results
 
+db_location = '../database_design/political_db.db'
 
 #Testing results
-result = get_general_sponsorship_agenda_power('Democrat', [date(2010,2,1), date(2019,2,1)], True)
+result = get_general_sponsorship_agenda_power(db_location, 'Democrat', [date(2010,2,1), date(2019,2,1)], True)
 with open('results/dem_general_sponsor_power.yaml', 'w+') as outfile:
     yaml.dump(result, outfile, default_flow_style=False)
 result = get_general_sponsorship_agenda_power('Republican', [date(2010,2,1), date(2019,2,1)], True)

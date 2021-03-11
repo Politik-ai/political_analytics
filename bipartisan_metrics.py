@@ -8,6 +8,9 @@ from political_queries import *
 import util 
 import pandas as pd
 from sqlalchemy import distinct, and_
+from multiprocessing_base import thread_worker
+sys.path.append(os.path.abspath('../data_collection/database_filler'))
+from base import get_session
 
 """
 Bi-partisan metrics:
@@ -41,16 +44,24 @@ Take ratio, and report!
 Later will normalize. 
 
 """
-def lugar_metric(session, time_range, parties):
+def lugar_metric(session, time_range, parties, bill_subset=None):
 
     #Formatted [range, party, metric]
     lugar_in_range = []
     for p in parties:
         
         #Get bills sponsored by party within given time range
-        party_bills = party_primary_sponsor_bills(session, p)
-        bills_in_range = bill_bw_dates(session, *time_range, party_bills).with_entities(Bill.id)
+        if bill_subset is not None:
+            party_bills = party_primary_sponsor_bills(session, p, bill_subset)
+        else:
+            party_bills = party_primary_sponsor_bills(session, p)
+            
+        #print(f'num party bills: {util.get_count(party_bills)}')
+
+        bills_in_range = bill_bw_dates(session, *time_range, party_bills)
      
+        print(f'num bills in range: {bills_in_range.count()}')
+
         #Get sponsorships from relevant bills
         sponsors = get_sponsors_from_bills(session, bills_in_range)
 
@@ -107,97 +118,141 @@ def bipartisan_vote_metric(session, cutoff, time_range, parties):
     if num_votes == 0:
         return None
 
+    #print('all votes in range:')
+    #print(vote_ids_in_range.all())
     #Items in format [vote_id, party, response, count]
     #Get all votes done in during a range
     #Get party proprtion of votes on both sides for each vote
     #Determine whether or not vote was "bipartisan" based on cutoff (or both majority)
     #Count number of bipartisan votes vs non -> ratio for period
+
     vote_data = session.query(Vote.id, Politician_Term.party, Vote_Politician.response, func.count(distinct(Vote_Politician.id)))\
-            .join(Vote_Politician).join(Politician).join(Politician_Term)\
-                .filter(Vote.id.in_(vote_ids_in_range.subquery()))\
-                    .filter(Vote.vote_date.between(Politician_Term.start_date, Politician_Term.end_date))\
-                        .group_by(Vote.id, Vote_Politician.response, Politician_Term.party).all()
+        .join(Vote_Politician).join(Politician).join(Politician_Term)\
+            .filter(Vote.id.in_(vote_ids_in_range.subquery()))\
+                    .group_by(Vote.id, Vote_Politician.response, Politician_Term.party)\
+                        .yield_per(10000)
 
-    max_votes = 0
-    for vd in vote_data:
-        if vd[3] > max_votes:
-            max_votes = vd[3]
-
-    #print('max votes:')
-    #print(max_votes)
 
     vote_data_df = pd.DataFrame(vote_data, columns=['vote_id', 'party', 'response', 'count'])
 
-    #print(vote_data_df)
     num_bipartisan_votes = 0
     num_votes = 0
+    total_votes_len = vote_ids_in_range.count()
     for vote_id in vote_ids_in_range:
         indv_vote_df = vote_data_df[vote_data_df['vote_id'] == vote_id]
         vote_info = {}
         for p in parties:
-            party_df = indv_vote_df[indv_vote_df['party'] == p]
-            #print('party df')
-            #print(party_df)
-            total_votes = party_df['count'].sum()
-            #print(total_votes)
-            support = party_df[party_df['response'] == 1]
-            support_votes = support['count'].sum()
+            total_votes = indv_vote_df.loc[((indv_vote_df['party'] == p) & (vote_data_df['vote_id'] == vote_id)), 'count'].sum()
+            
+            support_votes = indv_vote_df.loc[((indv_vote_df['party'] == p) & (indv_vote_df['response'] == 1) & (vote_data_df['vote_id'] == vote_id)), 'count'].sum()
+            
+            
+            #NOTE: EOF found in one of the parties, unknown reason
+            if total_votes == 0:
+                continue
 
+            #print(f"support: {support_votes}")
+            #print(f"total: {total_votes}")
             support_ratio = support_votes/total_votes
             vote_info[p] = support_ratio
-            #print('support')
-            #print(support)
         
         if maxDiff(list(vote_info.values())) < cutoff or min(vote_info.values()) >= 0.5:
             num_bipartisan_votes += 1
         num_votes += 1
+        print(f'Completed vote in range: {num_votes}/{total_votes_len}')
 
     return num_bipartisan_votes/num_votes
 
+def get_all_topic_metrics(session, parties, time_ranges, vote_cutoff, db_location):
+
+    topic_ids_name = get_all_topics(session).with_entities(Topic.id, Topic.name).all()
+    pool = ThreadPool(processes = 4)
+
+    spec_topic_bills = topic_bills(session, topic.id)
+    topic_vote_metrics = []
+    topic_lugar_metrics = []
+
+    results = pool.starmap_async(thread_worker, db_location, [(metrics_over_range, db_location, [t[1], time_ranges, parties, vote_cutoff, topic_bills(session, t[0])]) for topic in topic_ids_name])
+
+    results = results.get()
+    
+    final_results = [[],[]]
+    for r in results:
+        final_results[0].extend(r[0])
+        final_results[1].extend(r[1])
+
+    return final_results
+
+def metrics_over_range(session, topic_name, time_ranges, parties, cutoff, bill_subset=None):
+    
+    lugar_metrics = []
+    vote_metrics = []
+    for t_range in time_ranges:
+        vote_metrics.append([t_range[0], bipartisan_vote_metric(session, cutoff, t_range, parties)])
+        lugar_metrics.extend(lugar_metric(session, t_range, parties))
+        print(f"Completed range: {t_range}")
+
+    #TODO:Save topic information
+
+    return [vote_metrics, lugar_metrics]
+
+
+
+
 
 if __name__ == "__main__":
+
+    db_location = sys.argv[1]
+
 
     import seaborn as sns
     import matplotlib.pyplot as plt
     sns.set_theme(style="darkgrid")
 
-    session = Session()
-
+    session = get_session(db_location)
     dates = get_bill_state_date_ranges(session)
     week_ranges = util.discretized_by_weeks(*dates)
     month_ranges = util.discretized_by_months(*dates)
     chosen_range = week_ranges
 
+    vote_cutoff = 0.2
+
     all_lugars = []
     parties = ["Democrat", "Independent", "Republican"]
 
-
     vote_metrics = []
     for r in chosen_range:
-        metric = bipartisan_vote_metric(session, .2, r, ['Democrat', 'Republican'])
+        metric = bipartisan_vote_metric(session, vote_cutoff, r, ['Democrat', 'Republican'])
         if metric is not None:
             vote_metrics.append([r[0], metric])
 
     vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'bipartisanship_ratio'])
+    vote_metrics_df.to_csv('113_only_vote_metrics.csv', index=False)
 
-    print(vote_metrics_df)
 
     i = 1
     num_ranges = len(chosen_range)
     for r in chosen_range:
+        if i > 1:
+            break
         range_lugar = lugar_metric(session, r, parties)
-        all_lugars += range_lugar
+        all_lugars.extend(range_lugar)
         print(f"{i}/{num_ranges}")
         i += 1
 
-
     lugar_df = pd.DataFrame(all_lugars, columns=['date', 'party', 'lugar_score'])
+    lugar_df.to_csv('113_only_lugar_metrics.csv', index=False)
 
     fix, axarr = plt.subplots(2, sharex=True)
-
     sns.lineplot(x='date', y='bipartisanship_ratio', data=vote_metrics_df, ax=axarr[0])
     sns.lineplot(x='date', y="lugar_score", hue="party", data=lugar_df, ax=axarr[1])
-    plt.show()    
+    
+    figure = fix.get_figure()
+    #fix.savefig("figure_name" + "_score" ".png")
+
+
+    metrics_over_range(session, chosen_range, parties, vote_cutoff, db_location)
+
 
 
 #Future plans
@@ -206,7 +261,6 @@ if __name__ == "__main__":
 -Do it for longer periods of time
 -Specify topic (may parse out procedural votes which is helpful)
 -Parse out weekly/monthly/yearly seasonal trends (potentially parsing out procedural things)
-
--Spend more time confirming code works as expected..
+-Spend more time confirming code works as expected.
 
 """

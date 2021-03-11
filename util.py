@@ -20,8 +20,8 @@ def discretized_by_months(earliest, latest):
     [last_month, last_year] = [latest.month, latest.year]
     _ , last_day = calendar.monthrange(last_year, last_month)
 
-    end_date = datetime.datetime(last_year, last_month, last_day)    
-    cur_date = datetime.datetime(first_year, first_month, 1)
+    end_date = datetime.date(last_year, last_month, last_day)    
+    cur_date = datetime.date(first_year, first_month, 1)
     discretizations = []
 
     while cur_date < end_date:
@@ -50,8 +50,8 @@ def discretized_by_weeks(earliest, latest):
     [last_month, last_year] = [latest.month, latest.year]
     _ , last_day = calendar.monthrange(last_year, last_month)
 
-    end_date = datetime.datetime(last_year, last_month, last_day)    
-    cur_date = datetime.datetime(first_year, first_month, 1)
+    end_date = datetime.date(last_year, last_month, last_day)    
+    cur_date = datetime.date(first_year, first_month, 1)
     discretizations = []
 
     week_start = cur_date

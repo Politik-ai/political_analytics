@@ -4,7 +4,7 @@ from framework import *
 from sqlalchemy import join
 from bill_status import *
 from sqlalchemy import func
-
+import util
 
 #BASIC QUERIES -----------------------------------------------------
 #Get all bills that were voted upon by a given politician
@@ -24,13 +24,30 @@ def topic_bills(session, topic_id, bill_query = None):
     return session.query(Bill).join(Bill_Topic).join(Topic).filter(Topic.id == topic_id)
 
 #return all bill of a given party
-def party_primary_sponsor_bills(session, party):
+def party_primary_sponsor_bills(session, party, bill_query=None):
+
     party_bills = session.query(Bill).join(Bill_State).join(Sponsorship).join(Politician).join(Politician_Term)\
         .filter(Politician_Term.party == party, \
         Politician_Term.start_date <= Bill_State.intro_date, \
         Politician_Term.end_date >= Bill_State.intro_date, \
         Sponsorship.sponsor_type == 'primary')
+
+
+
+    if bill_query:
+
+        bill_sub = bill_query.with_entities(Bill.id).subquery()
+        party_bills = party_bills.filter(Bill.id.in_(bill_sub))
+        
     return party_bills
+
+
+def get_resolutions_from_bills(session, bill_query=None):
+
+    resolution_indicators = ['']
+
+    resolutions = session.query(Bill).filter()
+
 
 #Return all bills sponsored by a given politician
 def pol_sponsored_bills(session, politician_id):
@@ -54,9 +71,24 @@ def bill_bw_dates(session, before_date, after_date, bill_query = None):
     if not bill_query:
         return session.query(Bill).join(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
     else:
-        bill_subquery = bill_query.subquery()
-        b_id, bill_code, status, originating_body = tuple(bill_subquery.c)
-        return session.query(Bill).join(bill_subquery, Bill.id == b_id).join(Bill_State).filter(Bill_State.intro_date.between(before_date,after_date))
+        #print(f"dates before: {before_date}, after: {after_date}")
+        bill_subquery = bill_query.with_entities(Bill.id).subquery()
+
+
+        range_query =  session.query(Bill)\
+                .join(Bill_State)\
+                    .filter(Bill_State.intro_date.between(before_date,after_date))
+                        #.filter(Bill.id.in_(bill_subquery))
+
+        bill_ids = [bill.id for bill in bill_query if bill is not None]
+        range_ids = [bill.id for bill in range_query if bill is not None]
+        intersect_id = [value for value in range_ids if value in bill_ids]
+        #print('intersect of ids:')
+        #print(intersect_id)
+        #print(type(bill_query.first().id))
+        #print(type(range_query.first().id))
+
+        return range_query.intersect(bill_query)
 
 #Returns the date ranges of the current db
 def get_bill_state_date_ranges(session):
@@ -130,11 +162,12 @@ def pol_votes_from_party(session, vote_query, party):
 #TODO: TEST
 #Get all sponsors for a given list of bills (bill_query)
 def get_sponsors_from_bills(session, bill_query):
-    bill_subquery = bill_query.subquery()
-    sponsors = session.query(
-        Sponsorship
-        ).join(
-            bill_subquery, Sponsorship.bill_id == bill_subquery.c.id)
+    
+    bill_ids_sub = bill_query.with_entities(Bill.id).subquery()
+    sponsors = session.query(Sponsorship)\
+        .join(Bill)\
+            .filter(Bill.id.in_(bill_ids_sub))
+
     return sponsors
 
 #Get all sponsors for a given list of bills (bill_query)
