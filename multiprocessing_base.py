@@ -20,4 +20,4 @@ def session_scope(db):
 def thread_worker(f, db, args):
     # We're using the session context here.
     with session_scope(db) as session:
-        return f(session, *args)
+        return f(session, db, *args)

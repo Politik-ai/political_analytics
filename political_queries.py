@@ -80,9 +80,9 @@ def bill_bw_dates(session, before_date, after_date, bill_query = None):
                     .filter(Bill_State.intro_date.between(before_date,after_date))
                         #.filter(Bill.id.in_(bill_subquery))
 
-        bill_ids = [bill.id for bill in bill_query if bill is not None]
-        range_ids = [bill.id for bill in range_query if bill is not None]
-        intersect_id = [value for value in range_ids if value in bill_ids]
+        #bill_ids = [bill.id for bill in bill_query if bill is not None]
+        #range_ids = [bill.id for bill in range_query if bill is not None]
+        #intersect_id = [value for value in range_ids if value in bill_ids]
         #print('intersect of ids:')
         #print(intersect_id)
         #print(type(bill_query.first().id))
@@ -125,12 +125,14 @@ def vote_pols_from_votes(session, vote_query):
 
     return session.query(Vote_Politician).join(Vote).filter(Vote.id.in_(vote_sub))
 
-def votes_between_dates(session, range, vote_query = None):
+def votes_between_dates(session, time_range, vote_query = None):
+
     if not vote_query:
-        return session.query(Vote).filter(Vote.vote_date.between(*range))
+        return session.query(Vote).filter(Vote.vote_date.between(*time_range))
+
     
     vote_sub = vote_query.with_entities(Vote.id).subquery()
-    return session.query(Vote).filter(Vote.vote_date.between(*range)).filter(Vote.id.in_(vote_sub))
+    return session.query(Vote).filter(Vote.vote_date.between(*time_range)).filter(Vote.id.in_(vote_sub))
 
 #Filter politicians by ones that were active on given date
 def filter_pols_by_date(session, pol_query, filter_date):
@@ -257,7 +259,7 @@ def topics_from_bills(session, bill_query):
 def get_all_politicians(session):
     return session.query(Politician.id)
 def get_all_topics(session):
-    return session.query(Topic).all()
+    return session.query(Topic)
 #Get a list of all parties represented in the Politician_Term table
 def get_all_parties(session):
     return session.query(Politician_Term.party).distinct()

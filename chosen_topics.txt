@@ -1,0 +1,17 @@
+('Health', 288),
+('Health care coverage and access', 64),
+('Health care costs and insurance', 245),
+('Armed forces and national security', 1),
+('Military personnel and dependents', 99),
+('International affairs', 49),
+('Higher education', 360),
+('Education', 92),
+('Education programs funding', 93),
+('Elementary and secondary education', 94),
+('Student aid and college costs', 335),
+('Crime and law enforcement', 311),
+('Taxation', 130)
+
+
+
+
