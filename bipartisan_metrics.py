@@ -50,7 +50,7 @@ def lugar_metric(session, time_range, parties, t_id=None):
     #Formatted [range, party, metric]
     lugar_in_range = []
     for p in parties:
-        print(f'party: {p}')
+        #print(f'party: {p}')
         
         party_bills = party_primary_sponsor_bills(session, p)
         #Get bills sponsored by party within given time range
@@ -76,6 +76,11 @@ def lugar_metric(session, time_range, parties, t_id=None):
         if p_only_count > num_sponsors:
             print("PROBLEM")
         lugar_in_range.append([time_range[0], p, (num_sponsors - p_only_count)/num_sponsors])
+
+    if len(lugar_in_range) != 0:
+        average_score = sum([l[2] for l in lugar_in_range])/len(lugar_in_range)
+        lugar_in_range.append([time_range[0], 'Average', average_score])
+
 
     return lugar_in_range
 
@@ -154,12 +159,13 @@ def bipartisan_vote_metric(session, cutoff, time_range, parties, topic_id=None):
             
             #NOTE: EOF found in one of the parties, unknown reason
             if total_votes == 0:
+                print('no pol votes found in vote')
                 continue
 
             support_ratio = support_votes/total_votes
             vote_info[p] = support_ratio
         
-        if maxDiff(list(vote_info.values())) < cutoff or min(vote_info.values()) >= 0.5:
+        if maxDiff(list(vote_info.values())) < cutoff or min(vote_info.values()) >= 0.5 or max(vote_info.values()) <= 0.5:
             num_bipartisan_votes += 1
         num_votes += 1
         print(f'Completed vote in range: {num_votes}/{total_votes_len}')
@@ -202,21 +208,21 @@ def metrics_over_range(session, db_location, topic_name, time_ranges, parties, c
     vote_metrics = []
     range_ind = 0
     for t_range in time_ranges:
-        #vote_metrics.append([t_range[0], bipartisan_vote_metric(session, cutoff, t_range, parties, t_id)])
-        lugar_metrics.extend(lugar_metric(session, t_range, parties, t_id))
+        vote_metrics.append([t_range[0], bipartisan_vote_metric(session, cutoff, t_range, parties, t_id)])
+        #lugar_metrics.extend(lugar_metric(session, t_range, parties, t_id))
 
         range_ind += 1
-        print(f"Completed range: {range_ind}/{len(time_ranges)}")
+        print(f"Completed range for {t_id}: {range_ind}/{len(time_ranges)}")
 
     #TODO:Save topic information
     
     print(f"Saving metrics for {topic_name}")
 
-    lugar_df = pd.DataFrame(lugar_metrics, columns=['date', 'party', 'lugar'])
-    lugar_df.to_csv(save_location + f"lugar_metric_{t_id}.csv")
+    #lugar_df = pd.DataFrame(lugar_metrics, columns=['date', 'party', 'lugar'])
+    #lugar_df.to_csv(save_location + f"lugar_metric_{t_id}.csv")
 
-    #vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'vote_metric'])
-    #vote_metrics_df.to_csv(save_location + f"vote_metric_{t_id}.csv")
+    vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'vote_metric'])
+    vote_metrics_df.to_csv(save_location + f"vote_metric_{t_id}.csv")
     
     return [topic_name, vote_metrics, lugar_metrics]
 
@@ -227,7 +233,6 @@ if __name__ == "__main__":
 
     db_location = sys.argv[1]
 
-
     import seaborn as sns
     import matplotlib.pyplot as plt
     sns.set_theme(style="darkgrid")
@@ -236,55 +241,55 @@ if __name__ == "__main__":
     dates = get_bill_state_date_ranges(session)
     week_ranges = util.discretized_by_weeks(*dates)
     month_ranges = util.discretized_by_months(*dates)
+    year_ranges = util.discretized_by_years(*dates)
     chosen_range = month_ranges
+
+    print(year_ranges)
 
     vote_cutoff = 0.2
 
     all_lugars = []
-    parties = ["Democrat", "Independent", "Republican"]
+    parties = ["Democrat", "Republican"]
 
-    # vote_metrics = []
-    # for r in chosen_range:
-    #     metric = bipartisan_vote_metric(session, vote_cutoff, r, ['Democrat', 'Republican'])
-    #     if metric is not None:
-    #         vote_metrics.append([r[0], metric])
+    vote_metrics = []
+    for r in chosen_range:
+        metric = bipartisan_vote_metric(session, vote_cutoff, r, parties)
+        if metric is not None:
+            vote_metrics.append([r[0], metric])
 
-    # vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'bipartisanship_ratio'])
-    # vote_metrics_df.to_csv('bipartisanship_results/vote_metrics.csv', index=False)
+    vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'bipartisanship_ratio'])
+    vote_metrics_df.to_csv('bipartisanship_results/vote_metrics_monthly.csv', index=False)
 
+    i = 1
+    num_ranges = len(chosen_range)
+    for r in chosen_range:
+        range_lugar = lugar_metric(session, r, parties)
+        all_lugars.extend(range_lugar)
+        print(f"{i}/{num_ranges}")
+        i += 1
 
-    # i = 1
-    # num_ranges = len(chosen_range)
-    # for r in chosen_range:
-    #     if i > 1:
-    #         break
-    #     range_lugar = lugar_metric(session, r, parties)
-    #     all_lugars.extend(range_lugar)
-    #     print(f"{i}/{num_ranges}")
-    #     i += 1
+    lugar_df = pd.DataFrame(all_lugars, columns=['date', 'party', 'lugar_score'])
+    lugar_df.to_csv('bipartisanship_results/lugar_metrics_monthly.csv', index=False)
 
-    # lugar_df = pd.DataFrame(all_lugars, columns=['date', 'party', 'lugar_score'])
-    # lugar_df.to_csv('bipartisanship_results/lugar_metrics.csv', index=False)
-
-    # fix, axarr = plt.subplots(2, sharex=True)
-    # sns.lineplot(x='date', y='bipartisanship_ratio', data=vote_metrics_df, ax=axarr[0])
-    # sns.lineplot(x='date', y="lugar_score", hue="party", data=lugar_df, ax=axarr[1])
+    fix, axarr = plt.subplots(2, sharex=True)
+    sns.lineplot(x='date', y='bipartisanship_ratio', data=vote_metrics_df, ax=axarr[0])
+    sns.lineplot(x='date', y="lugar_score", hue="party", data=lugar_df, ax=axarr[1])
     
-    # figure = fix.get_figure()
-    # #fix.savefig("figure_name" + "_score" ".png")
+    figure = fix.get_figure()
+    fix.savefig("metrics" + "_score" + "_monthly" + ".png")
 
-    topics_to_check = [('Health', 288),
-        ('Health_care_coverage_and_access', 64),
-        ('Health_care_costs_and_insurance', 245),
-        ('Armed_forces_and_national_security', 1),
-        ('Military_personnel_and_dependents', 99),
-        ('International_affairs', 49),
-        ('Higher_education', 360),
-        ('Education', 92),
-        ('Education_programs_funding', 93),
-        ('Elementary_and_secondary_education', 94),
-        ('Student_aid_and_colleg_ costs', 335),
-        ('Crime_and_law_enforcement', 311),
-        ('Taxation', 130)]
+    # topics_to_check = [('Health', 288),
+    #     ('Health_care_coverage_and_access', 64),
+    #     ('Health_care_costs_and_insurance', 245),
+    #     ('Armed_forces_and_national_security', 1),
+    #     ('Military_personnel_and_dependents', 99),
+    #     ('International_affairs', 49),
+    #     ('Higher_education', 360),
+    #     ('Education', 92),
+    #     ('Education_programs_funding', 93),
+    #     ('Elementary_and_secondary_education', 94),
+    #     ('Student_aid_and_colleg_ costs', 335),
+    #     ('Crime_and_law_enforcement', 311),
+    #     ('Taxation', 130)]
 
-    topic_results = get_all_topic_metrics(chosen_range, parties, vote_cutoff, db_location, topics_to_check)
+    # topic_results = get_all_topic_metrics(chosen_range, parties, vote_cutoff, db_location, topics_to_check)

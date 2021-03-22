@@ -73,6 +73,28 @@ def discretized_by_weeks(earliest, latest):
     return discretizations
 
 
+def discretized_by_years(earliest, latest):
+
+    [first_month, first_year] = [earliest.month, earliest.year]
+    [last_month, last_year] = [latest.month, latest.year]
+    _ , last_day = calendar.monthrange(last_year, 12)
+
+    cur_year = first_year
+
+    discretizations = []
+
+    while cur_year < last_year:
+
+        year_start = datetime.date(cur_year,1,1)
+        year_end = datetime.date(cur_year,12,31)
+
+        discretizations.append([year_start, year_end])
+
+        cur_year += 1
+
+    return discretizations
+
+
 
 def get_count(q):
     count_q = q.statement.with_only_columns([func.count()]).order_by(None)
