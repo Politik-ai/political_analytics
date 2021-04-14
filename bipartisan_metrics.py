@@ -218,11 +218,11 @@ def metrics_over_range(session, db_location, topic_name, time_ranges, parties, c
     
     print(f"Saving metrics for {topic_name}")
 
-    #lugar_df = pd.DataFrame(lugar_metrics, columns=['date', 'party', 'lugar'])
-    #lugar_df.to_csv(save_location + f"lugar_metric_{t_id}.csv")
+    lugar_df = pd.DataFrame(lugar_metrics, columns=['date', 'party', 'lugar'])
+    lugar_df.to_csv(save_location + f"lugar_metric_{t_id}_yearly.csv")
 
     vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'vote_metric'])
-    vote_metrics_df.to_csv(save_location + f"vote_metric_{t_id}.csv")
+    vote_metrics_df.to_csv(save_location + f"vote_metric_{t_id}_yearly.csv")
     
     return [topic_name, vote_metrics, lugar_metrics]
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     week_ranges = util.discretized_by_weeks(*dates)
     month_ranges = util.discretized_by_months(*dates)
     year_ranges = util.discretized_by_years(*dates)
-    chosen_range = month_ranges
+    chosen_range = year_ranges
 
     print(year_ranges)
 
@@ -258,7 +258,7 @@ if __name__ == "__main__":
             vote_metrics.append([r[0], metric])
 
     vote_metrics_df = pd.DataFrame(vote_metrics, columns=['date', 'bipartisanship_ratio'])
-    vote_metrics_df.to_csv('bipartisanship_results/vote_metrics_monthly.csv', index=False)
+    vote_metrics_df.to_csv('bipartisanship_results/vote_metrics_yearly.csv', index=False)
 
     i = 1
     num_ranges = len(chosen_range)
@@ -269,14 +269,16 @@ if __name__ == "__main__":
         i += 1
 
     lugar_df = pd.DataFrame(all_lugars, columns=['date', 'party', 'lugar_score'])
-    lugar_df.to_csv('bipartisanship_results/lugar_metrics_monthly.csv', index=False)
+    lugar_df.to_csv('bipartisanship_results/lugar_metrics_yearly.csv', index=False)
 
     fix, axarr = plt.subplots(2, sharex=True)
     sns.lineplot(x='date', y='bipartisanship_ratio', data=vote_metrics_df, ax=axarr[0])
     sns.lineplot(x='date', y="lugar_score", hue="party", data=lugar_df, ax=axarr[1])
     
     figure = fix.get_figure()
-    fix.savefig("metrics" + "_score" + "_monthly" + ".png")
+    axarr[0].set(xlabel='Time', ylabel='Vote Metric')
+    axarr[1].set(xlabel='Time', ylabel='Lugar Metric')
+    fix.savefig("metrics" + "_score" + "_yearly" + ".png")
 
     # topics_to_check = [('Health', 288),
     #     ('Health_care_coverage_and_access', 64),
